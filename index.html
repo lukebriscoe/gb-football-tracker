@@ -3,10 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>George's Football Tracker ⚽</title>
+    <title>GB's Football Tracker ⚽</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 </head>
 <body>
     <div id="root"></div>
@@ -14,19 +18,87 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // Simple localStorage wrapper
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAF3cD0NMoQJKQdBikl-Kc3RdBr3zbgJ9o",
+  authDomain: "football-tracker-10904.firebaseapp.com",
+  databaseURL: "https://football-tracker-10904-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "football-tracker-10904",
+  storageBucket: "football-tracker-10904.firebasestorage.app",
+  messagingSenderId: "856042316041",
+  appId: "1:856042316041:web:f867087bde8e402c12b3d8"
+        };
+        
+
+        // Initialize Firebase
+        let database = null;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            console.log('Firebase initialized successfully');
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+        }
+
+        // Storage wrapper that uses Firebase when available, falls back to localStorage
         const storage = {
-            get(key) {
+            // Get data
+            get: async (key) => {
+                if (database) {
+                    try {
+                        const snapshot = await database.ref(key).once('value');
+                        return snapshot.val();
+                    } catch (error) {
+                        console.error('Firebase get error:', error);
+                    }
+                }
+                // Fallback to localStorage
                 const value = localStorage.getItem(key);
                 return value ? JSON.parse(value) : null;
             },
             
-            set(key, value) {
+            // Set data
+            set: async (key, value) => {
+                if (database) {
+                    try {
+                        await database.ref(key).set(value);
+                        return;
+                    } catch (error) {
+                        console.error('Firebase set error:', error);
+                    }
+                }
+                // Fallback to localStorage
                 localStorage.setItem(key, JSON.stringify(value));
             },
             
-            remove(key) {
+            // Remove data
+            remove: async (key) => {
+                if (database) {
+                    try {
+                        await database.ref(key).remove();
+                        return;
+                    } catch (error) {
+                        console.error('Firebase remove error:', error);
+                    }
+                }
+                // Fallback to localStorage
                 localStorage.removeItem(key);
+            },
+            
+            // Listen for changes (Firebase only)
+            onValue: (key, callback) => {
+                if (database) {
+                    return database.ref(key).on('value', (snapshot) => {
+                        callback(snapshot.val());
+                    });
+                }
+            },
+            
+            // Stop listening (Firebase only)
+            off: (key) => {
+                if (database) {
+                    database.ref(key).off();
+                }
             }
         };
 
@@ -39,34 +111,76 @@
             const [opponent, setOpponent] = useState('');
             const [teamGoals, setTeamGoals] = useState('');
             const [opponentGoals, setOpponentGoals] = useState('');
-            const [georgeGoals, setGeorgeGoals] = useState('');
-            const [georgeAssists, setGeorgeAssists] = useState('');
+            const [Goals, setGoals] = useState('');
+            const [Assists, setAssists] = useState('');
+            const [syncing, setSyncing] = useState(false);
+            const [connectionStatus, setConnectionStatus] = useState('connecting');
 
-            // Load teams from storage on mount
+            // Check Firebase connection status
             useEffect(() => {
-                const loadedTeams = storage.get('teams');
-                if (loadedTeams && loadedTeams.length > 0) {
-                    setTeams(loadedTeams);
-                    setCurrentTeam(loadedTeams[0].id);
+                if (database) {
+                    const connectedRef = database.ref('.info/connected');
+                    connectedRef.on('value', (snapshot) => {
+                        if (snapshot.val() === true) {
+                            setConnectionStatus('connected');
+                        } else {
+                            setConnectionStatus('disconnected');
+                        }
+                    });
+                    return () => connectedRef.off();
+                } else {
+                    setConnectionStatus('local');
                 }
             }, []);
 
-            // Load matches for current team
+            // Load teams and listen for changes
+            useEffect(() => {
+                const loadTeams = async () => {
+                    const loadedTeams = await storage.get('teams');
+                    if (loadedTeams && loadedTeams.length > 0) {
+                        setTeams(loadedTeams);
+                        if (!currentTeam) {
+                            setCurrentTeam(loadedTeams[0].id);
+                        }
+                    }
+                };
+                
+                loadTeams();
+
+                // Listen for real-time updates
+                if (database) {
+                    storage.onValue('teams', (data) => {
+                        if (data && data.length > 0) {
+                            setTeams(data);
+                        }
+                    });
+
+                    return () => storage.off('teams');
+                }
+            }, []);
+
+            // Load matches for current team and listen for changes
             useEffect(() => {
                 if (currentTeam) {
-                    const loadedMatches = storage.get(`matches-${currentTeam}`);
-                    setMatches(loadedMatches || []);
+                    const loadMatches = async () => {
+                        const loadedMatches = await storage.get(`matches-${currentTeam}`);
+                        setMatches(loadedMatches || []);
+                    };
+                    
+                    loadMatches();
+
+                    // Listen for real-time updates
+                    if (database) {
+                        storage.onValue(`matches-${currentTeam}`, (data) => {
+                            setMatches(data || []);
+                        });
+
+                        return () => storage.off(`matches-${currentTeam}`);
+                    }
                 }
             }, [currentTeam]);
 
-            // Save matches whenever they change
-            useEffect(() => {
-                if (currentTeam && matches.length >= 0) {
-                    storage.set(`matches-${currentTeam}`, matches);
-                }
-            }, [matches, currentTeam]);
-
-            const addTeam = (teamName, colors) => {
+            const addTeam = async (teamName, colors) => {
                 const newTeam = {
                     id: Date.now().toString(),
                     name: teamName,
@@ -74,11 +188,11 @@
                 };
                 const updatedTeams = [...teams, newTeam];
                 setTeams(updatedTeams);
-                storage.set('teams', updatedTeams);
+                await storage.set('teams', updatedTeams);
                 setCurrentTeam(newTeam.id);
             };
 
-            const deleteTeam = (teamId) => {
+            const deleteTeam = async (teamId) => {
                 if (teams.length <= 1) {
                     alert("You need at least one team!");
                     return;
@@ -86,56 +200,61 @@
                 
                 const updatedTeams = teams.filter(t => t.id !== teamId);
                 setTeams(updatedTeams);
-                storage.set('teams', updatedTeams);
-                storage.remove(`matches-${teamId}`);
+                await storage.set('teams', updatedTeams);
+                await storage.remove(`matches-${teamId}`);
                 
-                // Switch to first remaining team
                 if (currentTeam === teamId) {
                     setCurrentTeam(updatedTeams[0].id);
                 }
             };
 
-            const handleSetupComplete = (newTeams) => {
+            const handleSetupComplete = async (newTeams) => {
                 setTeams(newTeams);
-                storage.set('teams', newTeams);
+                await storage.set('teams', newTeams);
                 setCurrentTeam(newTeams[0].id);
             };
 
-            const addMatch = () => {
-                if (!opponent || teamGoals === '' || opponentGoals === '' || georgeGoals === '' || georgeAssists === '') {
+            const addMatch = async () => {
+                if (!opponent || teamGoals === '' || opponentGoals === '' || Goals === '' || Assists === '') {
                     alert('Please fill in all fields! ⚽');
                     return;
                 }
 
+                setSyncing(true);
                 const newMatch = {
                     id: Date.now(),
                     opponent,
                     teamGoals: parseInt(teamGoals),
                     opponentGoals: parseInt(opponentGoals),
-                    georgeGoals: parseInt(georgeGoals),
-                    georgeAssists: parseInt(georgeAssists),
+                    Goals: parseInt(Goals),
+                    Assists: parseInt(Assists),
                     date: new Date().toLocaleDateString()
                 };
 
-                setMatches([...matches, newMatch]);
+                const updatedMatches = [...matches, newMatch];
+                setMatches(updatedMatches);
+                await storage.set(`matches-${currentTeam}`, updatedMatches);
                 
                 // Reset form
                 setOpponent('');
                 setTeamGoals('');
                 setOpponentGoals('');
-                setGeorgeGoals('');
-                setGeorgeAssists('');
+                setGoals('');
+                setAssists('');
                 setShowForm(false);
+                setTimeout(() => setSyncing(false), 500);
             };
 
-            const deleteMatch = (id) => {
+            const deleteMatch = async (id) => {
+                setSyncing(true);
                 const updatedMatches = matches.filter(m => m.id !== id);
                 setMatches(updatedMatches);
+                await storage.set(`matches-${currentTeam}`, updatedMatches);
+                setTimeout(() => setSyncing(false), 500);
             };
 
             const currentTeamObj = teams.find(t => t.id === currentTeam);
             
-            // Get colors for current team, with fallback to yellow/black
             const teamColors = currentTeamObj?.colors || {
                 primary: '#FFD700',
                 secondary: '#1a1a1a',
@@ -143,8 +262,8 @@
             };
 
             // Calculate stats
-            const totalGeorgeGoals = matches.reduce((sum, m) => sum + m.georgeGoals, 0);
-            const totalGeorgeAssists = matches.reduce((sum, m) => sum + m.georgeAssists, 0);
+            const totalGoals = matches.reduce((sum, m) => sum + m.Goals, 0);
+            const totalAssists = matches.reduce((sum, m) => sum + m.Assists, 0);
             const wins = matches.filter(m => m.teamGoals > m.opponentGoals).length;
             const draws = matches.filter(m => m.teamGoals === m.opponentGoals).length;
             const losses = matches.filter(m => m.teamGoals < m.opponentGoals).length;
@@ -160,7 +279,6 @@
                         maxWidth: '800px',
                         margin: '0 auto'
                     }}>
-                        {/* Team Setup/Selection */}
                         {teams.length === 0 ? (
                             <TeamSetupScreen onSetupComplete={handleSetupComplete} />
                         ) : (
@@ -183,8 +301,68 @@
                             padding: '30px',
                             marginBottom: '20px',
                             boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
-                            textAlign: 'center'
+                            textAlign: 'center',
+                            position: 'relative'
                         }}>
+                            {/* Connection Status & Sync Indicator */}
+                            <div style={{
+                                position: 'absolute',
+                                top: '15px',
+                                right: '15px',
+                                display: 'flex',
+                                gap: '10px',
+                                alignItems: 'center'
+                            }}>
+                                {connectionStatus === 'connected' && (
+                                    <div style={{
+                                        background: '#4CAF50',
+                                        color: 'white',
+                                        padding: '6px 12px',
+                                        borderRadius: '15px',
+                                        fontSize: '0.85em',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        ☁️ Synced
+                                    </div>
+                                )}
+                                {connectionStatus === 'disconnected' && (
+                                    <div style={{
+                                        background: '#FF9800',
+                                        color: 'white',
+                                        padding: '6px 12px',
+                                        borderRadius: '15px',
+                                        fontSize: '0.85em',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        ⚠️ Offline
+                                    </div>
+                                )}
+                                {connectionStatus === 'local' && (
+                                    <div style={{
+                                        background: '#2196F3',
+                                        color: 'white',
+                                        padding: '6px 12px',
+                                        borderRadius: '15px',
+                                        fontSize: '0.85em',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        💾 Local
+                                    </div>
+                                )}
+                                {syncing && (
+                                    <div style={{
+                                        background: teamColors.primary,
+                                        color: teamColors.secondary,
+                                        padding: '6px 12px',
+                                        borderRadius: '15px',
+                                        fontSize: '0.85em',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        ⏳ Saving...
+                                    </div>
+                                )}
+                            </div>
+
                             <h1 style={{
                                 color: teamColors.primary,
                                 fontSize: '2.5em',
@@ -192,7 +370,7 @@
                                 fontWeight: 'bold',
                                 textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
                             }}>
-                                ⚽ George's Football Tracker ⚽
+                                ⚽ GB's Football Tracker ⚽
                             </h1>
                             <p style={{
                                 color: '#666',
@@ -209,14 +387,14 @@
                             marginBottom: '20px'
                         }}>
                             <StatCard 
-                                title="George's Goals" 
-                                value={totalGeorgeGoals} 
+                                title="Goals" 
+                                value={totalGoals} 
                                 emoji="⚽" 
                                 color={teamColors.primary}
                             />
                             <StatCard 
-                                title="George's Assists" 
-                                value={totalGeorgeAssists} 
+                                title="Assists" 
+                                value={totalAssists} 
                                 emoji="🎯" 
                                 color={teamColors.primary === '#FFD700' ? '#FFA500' : '#5a7fc7'}
                             />
@@ -307,16 +485,16 @@
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                     <FormInput 
-                                        label="George's Goals ⚽" 
-                                        value={georgeGoals}
-                                        onChange={setGeorgeGoals}
+                                        label="Goals ⚽" 
+                                        value={Goals}
+                                        onChange={setGoals}
                                         type="number"
                                         min="0"
                                     />
                                     <FormInput 
-                                        label="George's Assists 🎯" 
-                                        value={georgeAssists}
-                                        onChange={setGeorgeAssists}
+                                        label="Assists 🎯" 
+                                        value={Assists}
+                                        onChange={setAssists}
                                         type="number"
                                         min="0"
                                     />
@@ -415,14 +593,13 @@
                     return;
                 }
                 
-                // Add both teams at once with their color schemes
                 const newTeams = [
                     {
                         id: Date.now().toString(),
                         name: team1.trim(),
                         colors: {
-                            primary: '#FFD700',    // Yellow
-                            secondary: '#1a1a1a',  // Black
+                            primary: '#FFD700',
+                            secondary: '#1a1a1a',
                             background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #4a4a4a 100%)'
                         }
                     },
@@ -430,8 +607,8 @@
                         id: (Date.now() + 1).toString(),
                         name: team2.trim(),
                         colors: {
-                            primary: '#1e3c72',    // Blue
-                            secondary: '#ffffff',  // White
+                            primary: '#1e3c72',
+                            secondary: '#ffffff',
                             background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7fa1d1 100%)'
                         }
                     }
@@ -455,7 +632,7 @@
                         fontWeight: 'bold',
                         textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
                     }}>
-                        ⚽ George's Football Tracker ⚽
+                        ⚽ Football Tracker ⚽
                     </h1>
                     <p style={{
                         color: '#666',
@@ -853,13 +1030,13 @@
                         }}>
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: teamColors.primary }}>
-                                    ⚽ {match.georgeGoals}
+                                    ⚽ {match.Goals}
                                 </div>
                                 <div style={{ fontSize: '0.8em', color: '#666' }}>Goals</div>
                             </div>
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: teamColors.primary === '#FFD700' ? '#FFA500' : '#5a7fc7' }}>
-                                    🎯 {match.georgeAssists}
+                                    🎯 {match.Assists}
                                 </div>
                                 <div style={{ fontSize: '0.8em', color: '#666' }}>Assists</div>
                             </div>
