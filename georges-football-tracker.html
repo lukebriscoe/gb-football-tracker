@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>George's Football Tracker ⚽</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function App() {
+            const [matches, setMatches] = useState([]);
+            const [showForm, setShowForm] = useState(false);
+            const [opponent, setOpponent] = useState('');
+            const [teamGoals, setTeamGoals] = useState('');
+            const [opponentGoals, setOpponentGoals] = useState('');
+            const [georgeGoals, setGeorgeGoals] = useState('');
+            const [georgeAssists, setGeorgeAssists] = useState('');
+
+            // Load matches from storage on mount
+            useEffect(() => {
+                const loadMatches = async () => {
+                    try {
+                        const result = await window.storage.get('matches');
+                        if (result && result.value) {
+                            setMatches(JSON.parse(result.value));
+                        }
+                    } catch (error) {
+                        console.log('No previous matches found');
+                    }
+                };
+                loadMatches();
+            }, []);
+
+            // Save matches whenever they change
+            useEffect(() => {
+                if (matches.length > 0) {
+                    const saveMatches = async () => {
+                        try {
+                            await window.storage.set('matches', JSON.stringify(matches));
+                        } catch (error) {
+                            console.error('Failed to save matches:', error);
+                        }
+                    };
+                    saveMatches();
+                }
+            }, [matches]);
+
+            const addMatch = () => {
+                if (!opponent || teamGoals === '' || opponentGoals === '' || georgeGoals === '' || georgeAssists === '') {
+                    alert('Please fill in all fields! ⚽');
+                    return;
+                }
+
+                const newMatch = {
+                    id: Date.now(),
+                    opponent,
+                    teamGoals: parseInt(teamGoals),
+                    opponentGoals: parseInt(opponentGoals),
+                    georgeGoals: parseInt(georgeGoals),
+                    georgeAssists: parseInt(georgeAssists),
+                    date: new Date().toLocaleDateString()
+                };
+
+                setMatches([...matches, newMatch]);
+                
+                // Reset form
+                setOpponent('');
+                setTeamGoals('');
+                setOpponentGoals('');
+                setGeorgeGoals('');
+                setGeorgeAssists('');
+                setShowForm(false);
+            };
+
+            const deleteMatch = async (id) => {
+                const updatedMatches = matches.filter(m => m.id !== id);
+                setMatches(updatedMatches);
+                
+                // If no matches left, clear storage
+                if (updatedMatches.length === 0) {
+                    try {
+                        await window.storage.delete('matches');
+                    } catch (error) {
+                        console.error('Failed to clear storage:', error);
+                    }
+                }
+            };
+
+            // Calculate stats
+            const totalGeorgeGoals = matches.reduce((sum, m) => sum + m.georgeGoals, 0);
+            const totalGeorgeAssists = matches.reduce((sum, m) => sum + m.georgeAssists, 0);
+            const wins = matches.filter(m => m.teamGoals > m.opponentGoals).length;
+            const draws = matches.filter(m => m.teamGoals === m.opponentGoals).length;
+            const losses = matches.filter(m => m.teamGoals < m.opponentGoals).length;
+
+            return (
+                <div style={{
+                    minHeight: '100vh',
+                    background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7fa1d1 100%)',
+                    padding: '20px',
+                    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
+                }}>
+                    <div style={{
+                        maxWidth: '800px',
+                        margin: '0 auto'
+                    }}>
+                        {/* Header */}
+                        <div style={{
+                            background: 'white',
+                            borderRadius: '20px',
+                            padding: '30px',
+                            marginBottom: '20px',
+                            boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+                            textAlign: 'center'
+                        }}>
+                            <h1 style={{
+                                color: '#1e3c72',
+                                fontSize: '2.5em',
+                                margin: '0 0 10px 0',
+                                fontWeight: 'bold'
+                            }}>
+                                ⚽ George's Football Tracker ⚽
+                            </h1>
+                            <p style={{
+                                color: '#666',
+                                fontSize: '1.2em',
+                                margin: 0
+                            }}>Under 9s Season</p>
+                        </div>
+
+                        {/* Stats Dashboard */}
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                            gap: '15px',
+                            marginBottom: '20px'
+                        }}>
+                            <StatCard 
+                                title="George's Goals" 
+                                value={totalGeorgeGoals} 
+                                emoji="⚽" 
+                                color="#4CAF50"
+                            />
+                            <StatCard 
+                                title="George's Assists" 
+                                value={totalGeorgeAssists} 
+                                emoji="🎯" 
+                                color="#2196F3"
+                            />
+                            <StatCard 
+                                title="Team Wins" 
+                                value={wins} 
+                                emoji="🏆" 
+                                color="#FFD700"
+                            />
+                            <StatCard 
+                                title="Draws" 
+                                value={draws} 
+                                emoji="🤝" 
+                                color="#FF9800"
+                            />
+                            <StatCard 
+                                title="Losses" 
+                                value={losses} 
+                                emoji="📊" 
+                                color="#9E9E9E"
+                            />
+                        </div>
+
+                        {/* Add Match Button */}
+                        {!showForm && (
+                            <button
+                                onClick={() => setShowForm(true)}
+                                style={{
+                                    width: '100%',
+                                    background: '#4CAF50',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '15px',
+                                    padding: '20px',
+                                    fontSize: '1.3em',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    marginBottom: '20px',
+                                    boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                                    transition: 'all 0.3s'
+                                }}
+                                onMouseOver={(e) => e.target.style.transform = 'scale(1.02)'}
+                                onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+                            >
+                                ➕ Add New Match
+                            </button>
+                        )}
+
+                        {/* Add Match Form */}
+                        {showForm && (
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '20px',
+                                padding: '30px',
+                                marginBottom: '20px',
+                                boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
+                            }}>
+                                <h2 style={{
+                                    color: '#1e3c72',
+                                    marginTop: 0,
+                                    fontSize: '1.8em'
+                                }}>Add Match Result</h2>
+                                
+                                <FormInput 
+                                    label="Opponent Team" 
+                                    value={opponent}
+                                    onChange={setOpponent}
+                                    placeholder="e.g., Eagles FC"
+                                    type="text"
+                                />
+                                
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                    <FormInput 
+                                        label="Our Goals" 
+                                        value={teamGoals}
+                                        onChange={setTeamGoals}
+                                        type="number"
+                                        min="0"
+                                    />
+                                    <FormInput 
+                                        label="Their Goals" 
+                                        value={opponentGoals}
+                                        onChange={setOpponentGoals}
+                                        type="number"
+                                        min="0"
+                                    />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                    <FormInput 
+                                        label="George's Goals ⚽" 
+                                        value={georgeGoals}
+                                        onChange={setGeorgeGoals}
+                                        type="number"
+                                        min="0"
+                                    />
+                                    <FormInput 
+                                        label="George's Assists 🎯" 
+                                        value={georgeAssists}
+                                        onChange={setGeorgeAssists}
+                                        type="number"
+                                        min="0"
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                                    <button
+                                        onClick={addMatch}
+                                        style={{
+                                            flex: 1,
+                                            background: '#4CAF50',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '10px',
+                                            padding: '15px',
+                                            fontSize: '1.1em',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ✅ Save Match
+                                    </button>
+                                    <button
+                                        onClick={() => setShowForm(false)}
+                                        style={{
+                                            flex: 1,
+                                            background: '#f44336',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '10px',
+                                            padding: '15px',
+                                            fontSize: '1.1em',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ❌ Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Match History */}
+                        {matches.length > 0 && (
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '20px',
+                                padding: '30px',
+                                boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
+                            }}>
+                                <h2 style={{
+                                    color: '#1e3c72',
+                                    marginTop: 0,
+                                    fontSize: '1.8em'
+                                }}>Match History</h2>
+                                
+                                {matches.map(match => (
+                                    <MatchCard 
+                                        key={match.id}
+                                        match={match}
+                                        onDelete={() => deleteMatch(match.id)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+
+                        {matches.length === 0 && !showForm && (
+                            <div style={{
+                                background: 'white',
+                                borderRadius: '20px',
+                                padding: '50px',
+                                textAlign: 'center',
+                                boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+                                color: '#666',
+                                fontSize: '1.2em'
+                            }}>
+                                <div style={{ fontSize: '4em', marginBottom: '20px' }}>⚽</div>
+                                No matches yet! Click "Add New Match" to get started!
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function StatCard({ title, value, emoji, color }) {
+            return (
+                <div style={{
+                    background: 'white',
+                    borderRadius: '15px',
+                    padding: '20px',
+                    textAlign: 'center',
+                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                    border: `3px solid ${color}`
+                }}>
+                    <div style={{ fontSize: '2.5em', marginBottom: '5px' }}>{emoji}</div>
+                    <div style={{ 
+                        fontSize: '2em', 
+                        fontWeight: 'bold', 
+                        color: color,
+                        marginBottom: '5px'
+                    }}>
+                        {value}
+                    </div>
+                    <div style={{ 
+                        fontSize: '0.9em', 
+                        color: '#666',
+                        fontWeight: '500'
+                    }}>
+                        {title}
+                    </div>
+                </div>
+            );
+        }
+
+        function FormInput({ label, value, onChange, type = "text", placeholder = "", min }) {
+            return (
+                <div style={{ marginBottom: '20px' }}>
+                    <label style={{
+                        display: 'block',
+                        marginBottom: '8px',
+                        color: '#1e3c72',
+                        fontWeight: 'bold',
+                        fontSize: '1.1em'
+                    }}>
+                        {label}
+                    </label>
+                    <input
+                        type={type}
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        placeholder={placeholder}
+                        min={min}
+                        style={{
+                            width: '100%',
+                            padding: '12px',
+                            fontSize: '1.1em',
+                            border: '2px solid #ddd',
+                            borderRadius: '8px',
+                            boxSizing: 'border-box'
+                        }}
+                    />
+                </div>
+            );
+        }
+
+        function MatchCard({ match, onDelete }) {
+            const result = match.teamGoals > match.opponentGoals ? 'WIN' : 
+                          match.teamGoals < match.opponentGoals ? 'LOSS' : 'DRAW';
+            const resultColor = result === 'WIN' ? '#4CAF50' : 
+                               result === 'LOSS' ? '#f44336' : '#FF9800';
+            const resultEmoji = result === 'WIN' ? '🏆' : 
+                               result === 'LOSS' ? '😔' : '🤝';
+
+            return (
+                <div style={{
+                    background: '#f5f5f5',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    marginBottom: '15px',
+                    border: `3px solid ${resultColor}`,
+                    position: 'relative'
+                }}>
+                    <button
+                        onClick={onDelete}
+                        style={{
+                            position: 'absolute',
+                            top: '10px',
+                            right: '10px',
+                            background: '#f44336',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '30px',
+                            height: '30px',
+                            cursor: 'pointer',
+                            fontSize: '1em'
+                        }}
+                        title="Delete match"
+                    >
+                        ×
+                    </button>
+
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '10px'
+                    }}>
+                        <div>
+                            <div style={{
+                                fontSize: '1.3em',
+                                fontWeight: 'bold',
+                                color: '#1e3c72'
+                            }}>
+                                vs {match.opponent}
+                            </div>
+                            <div style={{ color: '#666', fontSize: '0.9em' }}>
+                                {match.date}
+                            </div>
+                        </div>
+                        <div style={{
+                            background: resultColor,
+                            color: 'white',
+                            padding: '8px 16px',
+                            borderRadius: '20px',
+                            fontWeight: 'bold',
+                            fontSize: '1.1em'
+                        }}>
+                            {resultEmoji} {result}
+                        </div>
+                    </div>
+
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: '10px',
+                        marginTop: '15px'
+                    }}>
+                        <div style={{ 
+                            background: 'white', 
+                            padding: '12px', 
+                            borderRadius: '8px',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '1.8em', fontWeight: 'bold', color: '#1e3c72' }}>
+                                {match.teamGoals} - {match.opponentGoals}
+                            </div>
+                            <div style={{ fontSize: '0.9em', color: '#666' }}>Final Score</div>
+                        </div>
+                        <div style={{ 
+                            background: 'white', 
+                            padding: '12px', 
+                            borderRadius: '8px',
+                            display: 'flex',
+                            justifyContent: 'space-around'
+                        }}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#4CAF50' }}>
+                                    ⚽ {match.georgeGoals}
+                                </div>
+                                <div style={{ fontSize: '0.8em', color: '#666' }}>Goals</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#2196F3' }}>
+                                    🎯 {match.georgeAssists}
+                                </div>
+                                <div style={{ fontSize: '0.8em', color: '#666' }}>Assists</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
