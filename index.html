@@ -14,7 +14,26 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
+        // Simple localStorage wrapper
+        const storage = {
+            get(key) {
+                const value = localStorage.getItem(key);
+                return value ? JSON.parse(value) : null;
+            },
+            
+            set(key, value) {
+                localStorage.setItem(key, JSON.stringify(value));
+            },
+            
+            remove(key) {
+                localStorage.removeItem(key);
+            }
+        };
+
         function App() {
+            const [teams, setTeams] = useState([]);
+            const [currentTeam, setCurrentTeam] = useState(null);
+            const [showTeamSetup, setShowTeamSetup] = useState(false);
             const [matches, setMatches] = useState([]);
             const [showForm, setShowForm] = useState(false);
             const [opponent, setOpponent] = useState('');
@@ -23,34 +42,64 @@
             const [georgeGoals, setGeorgeGoals] = useState('');
             const [georgeAssists, setGeorgeAssists] = useState('');
 
-            // Load matches from storage on mount
+            // Load teams from storage on mount
             useEffect(() => {
-                const loadMatches = async () => {
-                    try {
-                        const result = await window.storage.get('matches');
-                        if (result && result.value) {
-                            setMatches(JSON.parse(result.value));
-                        }
-                    } catch (error) {
-                        console.log('No previous matches found');
-                    }
-                };
-                loadMatches();
+                const loadedTeams = storage.get('teams');
+                if (loadedTeams && loadedTeams.length > 0) {
+                    setTeams(loadedTeams);
+                    setCurrentTeam(loadedTeams[0].id);
+                }
             }, []);
+
+            // Load matches for current team
+            useEffect(() => {
+                if (currentTeam) {
+                    const loadedMatches = storage.get(`matches-${currentTeam}`);
+                    setMatches(loadedMatches || []);
+                }
+            }, [currentTeam]);
 
             // Save matches whenever they change
             useEffect(() => {
-                if (matches.length > 0) {
-                    const saveMatches = async () => {
-                        try {
-                            await window.storage.set('matches', JSON.stringify(matches));
-                        } catch (error) {
-                            console.error('Failed to save matches:', error);
-                        }
-                    };
-                    saveMatches();
+                if (currentTeam && matches.length >= 0) {
+                    storage.set(`matches-${currentTeam}`, matches);
                 }
-            }, [matches]);
+            }, [matches, currentTeam]);
+
+            const addTeam = (teamName, colors) => {
+                const newTeam = {
+                    id: Date.now().toString(),
+                    name: teamName,
+                    colors: colors
+                };
+                const updatedTeams = [...teams, newTeam];
+                setTeams(updatedTeams);
+                storage.set('teams', updatedTeams);
+                setCurrentTeam(newTeam.id);
+            };
+
+            const deleteTeam = (teamId) => {
+                if (teams.length <= 1) {
+                    alert("You need at least one team!");
+                    return;
+                }
+                
+                const updatedTeams = teams.filter(t => t.id !== teamId);
+                setTeams(updatedTeams);
+                storage.set('teams', updatedTeams);
+                storage.remove(`matches-${teamId}`);
+                
+                // Switch to first remaining team
+                if (currentTeam === teamId) {
+                    setCurrentTeam(updatedTeams[0].id);
+                }
+            };
+
+            const handleSetupComplete = (newTeams) => {
+                setTeams(newTeams);
+                storage.set('teams', newTeams);
+                setCurrentTeam(newTeams[0].id);
+            };
 
             const addMatch = () => {
                 if (!opponent || teamGoals === '' || opponentGoals === '' || georgeGoals === '' || georgeAssists === '') {
@@ -79,18 +128,18 @@
                 setShowForm(false);
             };
 
-            const deleteMatch = async (id) => {
+            const deleteMatch = (id) => {
                 const updatedMatches = matches.filter(m => m.id !== id);
                 setMatches(updatedMatches);
-                
-                // If no matches left, clear storage
-                if (updatedMatches.length === 0) {
-                    try {
-                        await window.storage.delete('matches');
-                    } catch (error) {
-                        console.error('Failed to clear storage:', error);
-                    }
-                }
+            };
+
+            const currentTeamObj = teams.find(t => t.id === currentTeam);
+            
+            // Get colors for current team, with fallback to yellow/black
+            const teamColors = currentTeamObj?.colors || {
+                primary: '#FFD700',
+                secondary: '#1a1a1a',
+                background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #4a4a4a 100%)'
             };
 
             // Calculate stats
@@ -103,7 +152,7 @@
             return (
                 <div style={{
                     minHeight: '100vh',
-                    background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7fa1d1 100%)',
+                    background: teamColors.background,
                     padding: '20px',
                     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
                 }}>
@@ -111,6 +160,22 @@
                         maxWidth: '800px',
                         margin: '0 auto'
                     }}>
+                        {/* Team Setup/Selection */}
+                        {teams.length === 0 ? (
+                            <TeamSetupScreen onSetupComplete={handleSetupComplete} />
+                        ) : (
+                            <>
+                                <TeamSelector 
+                                    teams={teams}
+                                    currentTeam={currentTeam}
+                                    onSelectTeam={setCurrentTeam}
+                                    onAddTeam={addTeam}
+                                    onDeleteTeam={deleteTeam}
+                                    showSetup={showTeamSetup}
+                                    setShowSetup={setShowTeamSetup}
+                                    teamColors={teamColors}
+                                />
+                        
                         {/* Header */}
                         <div style={{
                             background: 'white',
@@ -121,10 +186,11 @@
                             textAlign: 'center'
                         }}>
                             <h1 style={{
-                                color: '#1e3c72',
+                                color: teamColors.primary,
                                 fontSize: '2.5em',
                                 margin: '0 0 10px 0',
-                                fontWeight: 'bold'
+                                fontWeight: 'bold',
+                                textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
                             }}>
                                 ⚽ George's Football Tracker ⚽
                             </h1>
@@ -132,7 +198,7 @@
                                 color: '#666',
                                 fontSize: '1.2em',
                                 margin: 0
-                            }}>Under 9s Season</p>
+                            }}>{currentTeamObj ? currentTeamObj.name : 'Under 9s Season'}</p>
                         </div>
 
                         {/* Stats Dashboard */}
@@ -146,31 +212,31 @@
                                 title="George's Goals" 
                                 value={totalGeorgeGoals} 
                                 emoji="⚽" 
-                                color="#4CAF50"
+                                color={teamColors.primary}
                             />
                             <StatCard 
                                 title="George's Assists" 
                                 value={totalGeorgeAssists} 
                                 emoji="🎯" 
-                                color="#2196F3"
+                                color={teamColors.primary === '#FFD700' ? '#FFA500' : '#5a7fc7'}
                             />
                             <StatCard 
                                 title="Team Wins" 
                                 value={wins} 
                                 emoji="🏆" 
-                                color="#FFD700"
+                                color={teamColors.primary}
                             />
                             <StatCard 
                                 title="Draws" 
                                 value={draws} 
                                 emoji="🤝" 
-                                color="#FF9800"
+                                color="#808080"
                             />
                             <StatCard 
                                 title="Losses" 
                                 value={losses} 
                                 emoji="📊" 
-                                color="#9E9E9E"
+                                color="#4a4a4a"
                             />
                         </div>
 
@@ -180,8 +246,8 @@
                                 onClick={() => setShowForm(true)}
                                 style={{
                                     width: '100%',
-                                    background: '#4CAF50',
-                                    color: 'white',
+                                    background: teamColors.primary,
+                                    color: teamColors.secondary,
                                     border: 'none',
                                     borderRadius: '15px',
                                     padding: '20px',
@@ -189,7 +255,7 @@
                                     fontWeight: 'bold',
                                     cursor: 'pointer',
                                     marginBottom: '20px',
-                                    boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                                    boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
                                     transition: 'all 0.3s'
                                 }}
                                 onMouseOver={(e) => e.target.style.transform = 'scale(1.02)'}
@@ -209,7 +275,7 @@
                                 boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
                             }}>
                                 <h2 style={{
-                                    color: '#1e3c72',
+                                    color: '#1a1a1a',
                                     marginTop: 0,
                                     fontSize: '1.8em'
                                 }}>Add Match Result</h2>
@@ -261,8 +327,8 @@
                                         onClick={addMatch}
                                         style={{
                                             flex: 1,
-                                            background: '#4CAF50',
-                                            color: 'white',
+                                            background: teamColors.primary,
+                                            color: teamColors.secondary,
                                             border: 'none',
                                             borderRadius: '10px',
                                             padding: '15px',
@@ -277,9 +343,9 @@
                                         onClick={() => setShowForm(false)}
                                         style={{
                                             flex: 1,
-                                            background: '#f44336',
-                                            color: 'white',
-                                            border: 'none',
+                                            background: teamColors.secondary,
+                                            color: teamColors.primary,
+                                            border: `2px solid ${teamColors.primary}`,
                                             borderRadius: '10px',
                                             padding: '15px',
                                             fontSize: '1.1em',
@@ -302,7 +368,7 @@
                                 boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
                             }}>
                                 <h2 style={{
-                                    color: '#1e3c72',
+                                    color: '#1a1a1a',
                                     marginTop: 0,
                                     fontSize: '1.8em'
                                 }}>Match History</h2>
@@ -312,6 +378,7 @@
                                         key={match.id}
                                         match={match}
                                         onDelete={() => deleteMatch(match.id)}
+                                        teamColors={teamColors}
                                     />
                                 ))}
                             </div>
@@ -331,7 +398,303 @@
                                 No matches yet! Click "Add New Match" to get started!
                             </div>
                         )}
+                            </>
+                        )}
                     </div>
+                </div>
+            );
+        }
+
+        function TeamSetupScreen({ onSetupComplete }) {
+            const [team1, setTeam1] = useState('');
+            const [team2, setTeam2] = useState('');
+
+            const handleSetup = () => {
+                if (!team1.trim() || !team2.trim()) {
+                    alert('Please enter both team names! ⚽');
+                    return;
+                }
+                
+                // Add both teams at once with their color schemes
+                const newTeams = [
+                    {
+                        id: Date.now().toString(),
+                        name: team1.trim(),
+                        colors: {
+                            primary: '#FFD700',    // Yellow
+                            secondary: '#1a1a1a',  // Black
+                            background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #4a4a4a 100%)'
+                        }
+                    },
+                    {
+                        id: (Date.now() + 1).toString(),
+                        name: team2.trim(),
+                        colors: {
+                            primary: '#1e3c72',    // Blue
+                            secondary: '#ffffff',  // White
+                            background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7fa1d1 100%)'
+                        }
+                    }
+                ];
+                
+                onSetupComplete(newTeams);
+            };
+
+            return (
+                <div style={{
+                    background: 'white',
+                    borderRadius: '20px',
+                    padding: '40px',
+                    boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+                    textAlign: 'center'
+                }}>
+                    <h1 style={{
+                        color: '#FFD700',
+                        fontSize: '2.5em',
+                        margin: '0 0 10px 0',
+                        fontWeight: 'bold',
+                        textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
+                    }}>
+                        ⚽ George's Football Tracker ⚽
+                    </h1>
+                    <p style={{
+                        color: '#666',
+                        fontSize: '1.3em',
+                        marginBottom: '30px'
+                    }}>
+                        Let's set up your two teams!
+                    </p>
+
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{
+                            display: 'block',
+                            marginBottom: '8px',
+                            color: '#1a1a1a',
+                            fontWeight: 'bold',
+                            fontSize: '1.2em',
+                            textAlign: 'left'
+                        }}>
+                            Team 1 Name (Yellow & Black)
+                        </label>
+                        <input
+                            type="text"
+                            value={team1}
+                            onChange={(e) => setTeam1(e.target.value)}
+                            placeholder="e.g., Lightning FC"
+                            style={{
+                                width: '100%',
+                                padding: '15px',
+                                fontSize: '1.2em',
+                                border: '2px solid #FFD700',
+                                borderRadius: '10px',
+                                boxSizing: 'border-box'
+                            }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: '30px' }}>
+                        <label style={{
+                            display: 'block',
+                            marginBottom: '8px',
+                            color: '#1a1a1a',
+                            fontWeight: 'bold',
+                            fontSize: '1.2em',
+                            textAlign: 'left'
+                        }}>
+                            Team 2 Name (Blue & White)
+                        </label>
+                        <input
+                            type="text"
+                            value={team2}
+                            onChange={(e) => setTeam2(e.target.value)}
+                            placeholder="e.g., Thunder United"
+                            style={{
+                                width: '100%',
+                                padding: '15px',
+                                fontSize: '1.2em',
+                                border: '2px solid #1e3c72',
+                                borderRadius: '10px',
+                                boxSizing: 'border-box'
+                            }}
+                        />
+                    </div>
+
+                    <button
+                        onClick={handleSetup}
+                        style={{
+                            width: '100%',
+                            background: '#FFD700',
+                            color: '#1a1a1a',
+                            border: 'none',
+                            borderRadius: '15px',
+                            padding: '20px',
+                            fontSize: '1.3em',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                        }}
+                    >
+                        ✅ Let's Go!
+                    </button>
+                </div>
+            );
+        }
+
+        function TeamSelector({ teams, currentTeam, onSelectTeam, onAddTeam, onDeleteTeam, showSetup, setShowSetup, teamColors }) {
+            const [newTeamName, setNewTeamName] = useState('');
+
+            const handleAddTeam = () => {
+                if (!newTeamName.trim()) {
+                    alert('Please enter a team name! ⚽');
+                    return;
+                }
+                
+                const defaultColors = {
+                    primary: '#FFD700',
+                    secondary: '#1a1a1a',
+                    background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #4a4a4a 100%)'
+                };
+                
+                onAddTeam(newTeamName.trim(), defaultColors);
+                setNewTeamName('');
+                setShowSetup(false);
+            };
+
+            return (
+                <div style={{
+                    background: 'white',
+                    borderRadius: '20px',
+                    padding: '20px',
+                    marginBottom: '20px',
+                    boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: showSetup ? '20px' : '0'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            gap: '10px',
+                            flexWrap: 'wrap',
+                            flex: 1
+                        }}>
+                            {teams.map(team => (
+                                <button
+                                    key={team.id}
+                                    onClick={() => onSelectTeam(team.id)}
+                                    style={{
+                                        background: currentTeam === team.id ? team.colors.primary : '#f5f5f5',
+                                        color: currentTeam === team.id ? team.colors.secondary : '#666',
+                                        border: currentTeam === team.id ? `3px solid ${team.colors.secondary}` : '2px solid #ddd',
+                                        borderRadius: '12px',
+                                        padding: '12px 20px',
+                                        fontSize: '1.1em',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    {team.name}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => setShowSetup(!showSetup)}
+                            style={{
+                                background: teamColors.secondary,
+                                color: teamColors.primary,
+                                border: `2px solid ${teamColors.primary}`,
+                                borderRadius: '10px',
+                                padding: '12px 16px',
+                                fontSize: '1.1em',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                marginLeft: '10px'
+                            }}
+                        >
+                            ⚙️
+                        </button>
+                    </div>
+
+                    {showSetup && (
+                        <div style={{
+                            borderTop: '2px solid #f5f5f5',
+                            paddingTop: '20px'
+                        }}>
+                            <h3 style={{ margin: '0 0 15px 0', color: '#1a1a1a' }}>Manage Teams</h3>
+                            
+                            <div style={{ marginBottom: '15px' }}>
+                                <input
+                                    type="text"
+                                    value={newTeamName}
+                                    onChange={(e) => setNewTeamName(e.target.value)}
+                                    placeholder="New team name..."
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        fontSize: '1.1em',
+                                        border: '2px solid #ddd',
+                                        borderRadius: '8px',
+                                        boxSizing: 'border-box',
+                                        marginBottom: '10px'
+                                    }}
+                                />
+                                <button
+                                    onClick={handleAddTeam}
+                                    style={{
+                                        width: '100%',
+                                        background: teamColors.primary,
+                                        color: teamColors.secondary,
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        padding: '12px',
+                                        fontSize: '1em',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    ➕ Add Team
+                                </button>
+                            </div>
+
+                            <div>
+                                <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9em' }}>Delete teams:</p>
+                                {teams.map(team => (
+                                    <div key={team.id} style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        padding: '8px',
+                                        background: '#f5f5f5',
+                                        borderRadius: '8px',
+                                        marginBottom: '5px'
+                                    }}>
+                                        <span style={{ fontWeight: 'bold' }}>{team.name}</span>
+                                        <button
+                                            onClick={() => {
+                                                if (confirm(`Delete ${team.name} and all its matches?`)) {
+                                                    onDeleteTeam(team.id);
+                                                }
+                                            }}
+                                            style={{
+                                                background: teamColors.secondary,
+                                                color: teamColors.primary,
+                                                border: 'none',
+                                                borderRadius: '5px',
+                                                padding: '5px 10px',
+                                                cursor: 'pointer',
+                                                fontSize: '0.9em'
+                                            }}
+                                        >
+                                            🗑️ Delete
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }
@@ -372,7 +735,7 @@
                     <label style={{
                         display: 'block',
                         marginBottom: '8px',
-                        color: '#1e3c72',
+                        color: '#1a1a1a',
                         fontWeight: 'bold',
                         fontSize: '1.1em'
                     }}>
@@ -397,11 +760,11 @@
             );
         }
 
-        function MatchCard({ match, onDelete }) {
+        function MatchCard({ match, onDelete, teamColors }) {
             const result = match.teamGoals > match.opponentGoals ? 'WIN' : 
                           match.teamGoals < match.opponentGoals ? 'LOSS' : 'DRAW';
-            const resultColor = result === 'WIN' ? '#4CAF50' : 
-                               result === 'LOSS' ? '#f44336' : '#FF9800';
+            const resultColor = result === 'WIN' ? teamColors.primary : 
+                               result === 'LOSS' ? '#808080' : '#FFA500';
             const resultEmoji = result === 'WIN' ? '🏆' : 
                                result === 'LOSS' ? '😔' : '🤝';
 
@@ -420,9 +783,9 @@
                             position: 'absolute',
                             top: '10px',
                             right: '10px',
-                            background: '#f44336',
-                            color: 'white',
-                            border: 'none',
+                            background: teamColors.secondary,
+                            color: teamColors.primary,
+                            border: `2px solid ${teamColors.primary}`,
                             borderRadius: '50%',
                             width: '30px',
                             height: '30px',
@@ -444,7 +807,7 @@
                             <div style={{
                                 fontSize: '1.3em',
                                 fontWeight: 'bold',
-                                color: '#1e3c72'
+                                color: '#1a1a1a'
                             }}>
                                 vs {match.opponent}
                             </div>
@@ -454,7 +817,7 @@
                         </div>
                         <div style={{
                             background: resultColor,
-                            color: 'white',
+                            color: result === 'WIN' ? teamColors.secondary : 'white',
                             padding: '8px 16px',
                             borderRadius: '20px',
                             fontWeight: 'bold',
@@ -476,7 +839,7 @@
                             borderRadius: '8px',
                             textAlign: 'center'
                         }}>
-                            <div style={{ fontSize: '1.8em', fontWeight: 'bold', color: '#1e3c72' }}>
+                            <div style={{ fontSize: '1.8em', fontWeight: 'bold', color: '#1a1a1a' }}>
                                 {match.teamGoals} - {match.opponentGoals}
                             </div>
                             <div style={{ fontSize: '0.9em', color: '#666' }}>Final Score</div>
@@ -489,13 +852,13 @@
                             justifyContent: 'space-around'
                         }}>
                             <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#4CAF50' }}>
+                                <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: teamColors.primary }}>
                                     ⚽ {match.georgeGoals}
                                 </div>
                                 <div style={{ fontSize: '0.8em', color: '#666' }}>Goals</div>
                             </div>
                             <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#2196F3' }}>
+                                <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: teamColors.primary === '#FFD700' ? '#FFA500' : '#5a7fc7' }}>
                                     🎯 {match.georgeAssists}
                                 </div>
                                 <div style={{ fontSize: '0.8em', color: '#666' }}>Assists</div>
