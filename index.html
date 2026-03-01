@@ -11,7 +11,6 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-    <script src="./config.js"></script>
 </head>
 <body>
     <div id="root"></div>
@@ -19,22 +18,26 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-// Firebase configuration is loaded from config.js (window.APP_CONFIG.firebase).
-const firebaseConfig = window.APP_CONFIG?.firebase;
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAF3cD0NMoQJKQdBikl-Kc3RdBr3zbgJ9o",
+  authDomain: "football-tracker-10904.firebaseapp.com",
+  databaseURL: "https://football-tracker-10904-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "football-tracker-10904",
+  storageBucket: "football-tracker-10904.firebasestorage.app",
+  messagingSenderId: "856042316041",
+  appId: "1:856042316041:web:f867087bde8e402c12b3d8"
+        };
         
 
         // Initialize Firebase
         let database = null;
-        if (firebaseConfig) {
-            try {
-                firebase.initializeApp(firebaseConfig);
-                database = firebase.database();
-                console.log('Firebase initialized successfully');
-            } catch (error) {
-                console.error('Firebase initialization error:', error);
-            }
-        } else {
-            console.warn('Missing Firebase config (config.js). Running in localStorage mode.');
+        try {
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            console.log('Firebase initialized successfully');
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
         }
 
         // Storage wrapper that uses Firebase when available, falls back to localStorage
