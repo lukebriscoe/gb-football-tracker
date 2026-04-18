@@ -3,1050 +3,1011 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GB's Football Tracker ⚽</title>
+    <title>GB's Football Tracker</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=DM+Mono:wght@400;500&family=Barlow+Condensed:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+    <!-- React -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
+
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:           #030c03;
+            --surface:      rgba(6, 22, 6, 0.98);
+            --card:         rgba(8, 26, 8, 0.92);
+            --card-border:  rgba(0, 255, 135, 0.09);
+            --card-border-h:rgba(0, 255, 135, 0.28);
+            --accent:       #00ff87;
+            --accent-dim:   rgba(0, 255, 135, 0.12);
+            --accent-glow:  0 0 24px rgba(0, 255, 135, 0.20);
+            --win:          #00ff87;
+            --loss:         #ff4444;
+            --draw:         #ffb700;
+            --text:         #e2ffe9;
+            --text-muted:   rgba(180, 230, 196, 0.42);
+            --text-dim:     rgba(180, 230, 196, 0.65);
+            --r:            10px;
+            --font-head:    'Chakra Petch', sans-serif;
+            --font-mono:    'DM Mono', monospace;
+            --font-body:    'Barlow Condensed', sans-serif;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(ellipse 80% 50% at 50% 0%,   rgba(0,255,135,0.04) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 40% at 50% 100%, rgba(0,255,135,0.03) 0%, transparent 60%),
+                repeating-linear-gradient(0deg,   transparent, transparent 79px, rgba(255,255,255,0.012) 80px),
+                repeating-linear-gradient(90deg,  transparent, transparent 79px, rgba(255,255,255,0.012) 80px);
+            min-height: 100vh;
+            color: var(--text);
+            font-family: var(--font-body);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ─── Animations ─────────────────────────────────────────────────────── */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0);    }
+        }
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.25; }
+        }
+        @keyframes shimmer {
+            0%   { background-position: -200% center; }
+            100% { background-position:  200% center; }
+        }
+
+        .a0  { animation: fadeUp 0.45s 0.00s ease both; }
+        .a1  { animation: fadeUp 0.45s 0.06s ease both; }
+        .a2  { animation: fadeUp 0.45s 0.12s ease both; }
+        .a3  { animation: fadeUp 0.45s 0.19s ease both; }
+        .a4  { animation: fadeUp 0.45s 0.26s ease both; }
+        .a5  { animation: fadeUp 0.45s 0.33s ease both; }
+
+        /* ─── Layout ─────────────────────────────────────────────────────────── */
+        .container {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 24px 16px 72px;
+        }
+
+        /* ─── Card base ──────────────────────────────────────────────────────── */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: var(--r);
+            backdrop-filter: blur(6px);
+        }
+        .card-lift {
+            transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s;
+        }
+        .card-lift:hover {
+            border-color: var(--card-border-h);
+            box-shadow: var(--accent-glow);
+            transform: translateY(-2px);
+        }
+
+        /* ─── Header ─────────────────────────────────────────────────────────── */
+        .header {
+            padding: 28px 28px 22px;
+            margin-bottom: 14px;
+            position: relative;
+        }
+        .header-eyebrow {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 6px;
+        }
+        .header-title {
+            font-family: var(--font-head);
+            font-size: clamp(2rem, 6.5vw, 3.6rem);
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            line-height: 1;
+            color: var(--text);
+        }
+        .header-title em {
+            font-style: normal;
+            color: var(--accent);
+        }
+        .header-team {
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-top: 10px;
+        }
+
+        /* ─── Connection badge ───────────────────────────────────────────────── */
+        .conn-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            padding: 5px 11px;
+            border-radius: 20px;
+            border: 1px solid;
+        }
+        .conn-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            animation: pulseDot 2s infinite;
+        }
+        .conn-synced  { border-color: rgba(0,255,135,0.25); color: var(--win);  background: rgba(0,255,135,0.07); }
+        .conn-synced  .conn-dot { background: var(--win); }
+        .conn-offline { border-color: rgba(255,183,0,0.25);  color: var(--draw); background: rgba(255,183,0,0.07); }
+        .conn-offline .conn-dot { background: var(--draw); }
+        .conn-local   { border-color: rgba(120,160,255,0.25); color: #7ab0ff;    background: rgba(120,160,255,0.07); }
+        .conn-local   .conn-dot { background: #7ab0ff; }
+
+        /* ─── Team tabs ──────────────────────────────────────────────────────── */
+        .team-bar {
+            padding: 14px 18px;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            font-family: var(--font-head);
+            font-weight: 600;
+            font-size: 0.82rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 7px 16px;
+            border-radius: 6px;
+            border: 1px solid var(--card-border);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.18s;
+        }
+        .tab-btn:hover       { color: var(--text); border-color: var(--card-border-h); }
+        .tab-btn.tab-active  { background: var(--accent); color: #020e04; border-color: var(--accent); }
+        .gear-btn {
+            margin-left: auto;
+            padding: 7px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--card-border);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            transition: all 0.18s;
+        }
+        .gear-btn:hover { color: var(--text); border-color: var(--card-border-h); }
+
+        /* ─── Manage panel ───────────────────────────────────────────────────── */
+        .manage-panel {
+            border-top: 1px solid var(--card-border);
+            padding: 18px 18px 16px;
+        }
+        .manage-title {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+        .manage-add-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .manage-input {
+            flex: 1;
+            padding: 9px 14px;
+            background: rgba(0,255,135,0.04);
+            border: 1px solid var(--card-border);
+            border-radius: 7px;
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            transition: border-color 0.2s;
+        }
+        .manage-input:focus { outline: none; border-color: rgba(0,255,135,0.35); }
+        .manage-input::placeholder { color: var(--text-muted); }
+        .manage-add-btn {
+            padding: 9px 16px;
+            background: var(--accent-dim);
+            border: 1px solid rgba(0,255,135,0.2);
+            border-radius: 7px;
+            color: var(--accent);
+            font-family: var(--font-head);
+            font-size: 0.82rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .manage-add-btn:hover { background: rgba(0,255,135,0.18); }
+        .team-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--card-border);
+            font-family: var(--font-head);
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+        .team-row:last-child { border-bottom: none; }
+        .del-team-btn {
+            background: transparent;
+            border: 1px solid rgba(255,68,68,0.2);
+            color: rgba(255,100,100,0.5);
+            border-radius: 4px;
+            padding: 3px 10px;
+            cursor: pointer;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            letter-spacing: 0.06em;
+            transition: all 0.18s;
+        }
+        .del-team-btn:hover { color: var(--loss); border-color: var(--loss); }
+
+        /* ─── Stat grid ──────────────────────────────────────────────────────── */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        @media (max-width: 540px) { .stat-grid { grid-template-columns: repeat(3, 1fr); } }
+
+        .stat-card {
+            padding: 18px 10px 16px;
+            text-align: center;
+        }
+        .stat-num {
+            font-family: var(--font-mono);
+            font-size: 2.1rem;
+            font-weight: 500;
+            line-height: 1;
+            margin-bottom: 5px;
+        }
+        .stat-num.c-accent { color: var(--accent); }
+        .stat-num.c-win    { color: var(--win);    }
+        .stat-num.c-loss   { color: var(--loss);   }
+        .stat-num.c-draw   { color: var(--draw);   }
+        .stat-num.c-muted  { color: var(--text-muted); }
+        .stat-lbl {
+            font-family: var(--font-head);
+            font-size: 0.62rem;
+            font-weight: 600;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        /* ─── Add Match button ───────────────────────────────────────────────── */
+        .add-btn {
+            width: 100%;
+            padding: 17px;
+            margin-bottom: 14px;
+            background: transparent;
+            border: 1px solid rgba(0,255,135,0.28);
+            border-radius: var(--r);
+            color: var(--accent);
+            font-family: var(--font-head);
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: box-shadow 0.22s, border-color 0.22s;
+        }
+        .add-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent 0%, rgba(0,255,135,0.07) 50%, transparent 100%);
+            background-size: 200% auto;
+            opacity: 0;
+            transition: opacity 0.22s;
+        }
+        .add-btn:hover { border-color: var(--accent); box-shadow: var(--accent-glow); }
+        .add-btn:hover::before { opacity: 1; animation: shimmer 1.6s linear infinite; }
+        .add-btn span { position: relative; }
+
+        /* ─── Form card ──────────────────────────────────────────────────────── */
+        .form-card { padding: 26px 28px; margin-bottom: 14px; }
+        .form-heading {
+            font-family: var(--font-head);
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text);
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--card-border);
+            margin-bottom: 22px;
+        }
+        .form-lbl {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 7px;
+        }
+        .form-inp {
+            width: 100%;
+            padding: 11px 14px;
+            background: rgba(0,255,135,0.04);
+            border: 1px solid var(--card-border);
+            border-radius: 7px;
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            margin-bottom: 18px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-inp:focus { outline: none; border-color: rgba(0,255,135,0.38); box-shadow: 0 0 0 3px rgba(0,255,135,0.07); }
+        .form-inp::placeholder { color: var(--text-muted); }
+        .form-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .form-actions { display: flex; gap: 10px; margin-top: 6px; }
+        .btn-save {
+            flex: 1;
+            padding: 13px;
+            background: var(--accent);
+            color: #020e04;
+            border: none;
+            border-radius: 7px;
+            font-family: var(--font-head);
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: opacity 0.18s, transform 0.15s;
+        }
+        .btn-save:hover { opacity: 0.88; transform: translateY(-1px); }
+        .btn-cancel {
+            flex: 1;
+            padding: 13px;
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--card-border);
+            border-radius: 7px;
+            font-family: var(--font-head);
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.18s;
+        }
+        .btn-cancel:hover { color: var(--text); border-color: var(--card-border-h); }
+
+        /* ─── Match history ──────────────────────────────────────────────────── */
+        .history-head {
+            padding: 18px 20px 0;
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .match-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 20px;
+            border-top: 1px solid var(--card-border);
+            position: relative;
+            transition: background 0.18s;
+        }
+        .match-row:hover { background: rgba(0,255,135,0.025); }
+        .match-vs {
+            font-family: var(--font-head);
+            font-size: 0.98rem;
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: 0.02em;
+        }
+        .match-vs span {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            margin-left: 6px;
+            letter-spacing: 0.05em;
+        }
+        .match-meta-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 5px;
+            flex-wrap: wrap;
+        }
+        .match-score {
+            font-family: var(--font-mono);
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: var(--text-dim);
+            letter-spacing: 0.06em;
+        }
+        .match-stat-pill {
+            font-family: var(--font-mono);
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            letter-spacing: 0.04em;
+        }
+        .match-stat-pill strong { color: var(--accent); font-weight: 500; }
+        .result-tag {
+            font-family: var(--font-head);
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            padding: 4px 9px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+        .tag-win  { background: rgba(0,255,135,0.12);  color: var(--win);  border: 1px solid rgba(0,255,135,0.22); }
+        .tag-loss { background: rgba(255,68,68,0.10);   color: var(--loss); border: 1px solid rgba(255,68,68,0.22); }
+        .tag-draw { background: rgba(255,183,0,0.10);   color: var(--draw); border: 1px solid rgba(255,183,0,0.22); }
+        .del-match-btn {
+            position: absolute;
+            top: 50%;
+            right: 14px;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.95rem;
+            padding: 5px 8px;
+            border-radius: 5px;
+            opacity: 0;
+            transition: opacity 0.18s, color 0.18s, background 0.18s;
+        }
+        .match-row:hover .del-match-btn { opacity: 1; }
+        .del-match-btn:hover { color: var(--loss); background: rgba(255,68,68,0.1); }
+
+        /* ─── Empty state ────────────────────────────────────────────────────── */
+        .empty {
+            padding: 56px 20px;
+            text-align: center;
+        }
+        .empty-icon {
+            font-size: 2.4rem;
+            margin-bottom: 14px;
+            display: block;
+            opacity: 0.28;
+        }
+        .empty-txt {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            letter-spacing: 0.08em;
+        }
+
+        /* ─── Setup screen ───────────────────────────────────────────────────── */
+        .setup-wrap {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .setup-card {
+            width: 100%;
+            max-width: 460px;
+            padding: 44px 36px;
+        }
+        .setup-eyebrow {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+        .setup-title {
+            font-family: var(--font-head);
+            font-size: 2.6rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            line-height: 1;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+        .setup-sub {
+            font-family: var(--font-mono);
+            font-size: 0.76rem;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            margin-bottom: 36px;
+        }
+
+        /* ─── Divider ─────────────────────────────────────────────────────────── */
+        .divider {
+            border: none;
+            border-top: 1px solid var(--card-border);
+            margin: 0;
+        }
+
+        /* ─── Scrollbar ──────────────────────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,255,135,0.2); border-radius: 4px; }
+    </style>
 </head>
 <body>
-    <div id="root"></div>
-    
-    <script type="text/babel">
-        const { useState, useEffect } = React;
+<div id="root"></div>
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyAF3cD0NMoQJKQdBikl-Kc3RdBr3zbgJ9o",
-  authDomain: "football-tracker-10904.firebaseapp.com",
-  databaseURL: "https://football-tracker-10904-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "football-tracker-10904",
-  storageBucket: "football-tracker-10904.firebasestorage.app",
-  messagingSenderId: "856042316041",
-  appId: "1:856042316041:web:f867087bde8e402c12b3d8"
-        };
-        
+<script type="text/babel">
+    const { useState, useEffect } = React;
 
-        // Initialize Firebase
-        let database = null;
-        try {
-            firebase.initializeApp(firebaseConfig);
-            database = firebase.database();
-            console.log('Firebase initialized successfully');
-        } catch (error) {
-            console.error('Firebase initialization error:', error);
-        }
+    const firebaseConfig = {
+        apiKey: "AIzaSyAF3cD0NMoQJKQdBikl-Kc3RdBr3zbgJ9o",
+        authDomain: "football-tracker-10904.firebaseapp.com",
+        databaseURL: "https://football-tracker-10904-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "football-tracker-10904",
+        storageBucket: "football-tracker-10904.firebasestorage.app",
+        messagingSenderId: "856042316041",
+        appId: "1:856042316041:web:f867087bde8e402c12b3d8"
+    };
 
-        // Storage wrapper that uses Firebase when available, falls back to localStorage
-        const storage = {
-            // Get data
-            get: async (key) => {
-                if (database) {
-                    try {
-                        const snapshot = await database.ref(key).once('value');
-                        return snapshot.val();
-                    } catch (error) {
-                        console.error('Firebase get error:', error);
-                    }
-                }
-                // Fallback to localStorage
-                const value = localStorage.getItem(key);
-                return value ? JSON.parse(value) : null;
-            },
-            
-            // Set data
-            set: async (key, value) => {
-                if (database) {
-                    try {
-                        await database.ref(key).set(value);
-                        return;
-                    } catch (error) {
-                        console.error('Firebase set error:', error);
-                    }
-                }
-                // Fallback to localStorage
-                localStorage.setItem(key, JSON.stringify(value));
-            },
-            
-            // Remove data
-            remove: async (key) => {
-                if (database) {
-                    try {
-                        await database.ref(key).remove();
-                        return;
-                    } catch (error) {
-                        console.error('Firebase remove error:', error);
-                    }
-                }
-                // Fallback to localStorage
-                localStorage.removeItem(key);
-            },
-            
-            // Listen for changes (Firebase only)
-            onValue: (key, callback) => {
-                if (database) {
-                    return database.ref(key).on('value', (snapshot) => {
-                        callback(snapshot.val());
-                    });
-                }
-            },
-            
-            // Stop listening (Firebase only)
-            off: (key) => {
-                if (database) {
-                    database.ref(key).off();
-                }
+    let database = null;
+    try {
+        firebase.initializeApp(firebaseConfig);
+        database = firebase.database();
+    } catch (error) {
+        console.error('Firebase init error:', error);
+    }
+
+    const storage = {
+        get: async (key) => {
+            if (database) {
+                try {
+                    const snap = await database.ref(key).once('value');
+                    return snap.val();
+                } catch (e) { console.error('Firebase get:', e); }
             }
+            const v = localStorage.getItem(key);
+            return v ? JSON.parse(v) : null;
+        },
+        set: async (key, value) => {
+            if (database) {
+                try { await database.ref(key).set(value); return; }
+                catch (e) { console.error('Firebase set:', e); }
+            }
+            localStorage.setItem(key, JSON.stringify(value));
+        },
+        remove: async (key) => {
+            if (database) {
+                try { await database.ref(key).remove(); return; }
+                catch (e) { console.error('Firebase remove:', e); }
+            }
+            localStorage.removeItem(key);
+        },
+        onValue: (key, cb) => {
+            if (database) database.ref(key).on('value', snap => cb(snap.val()));
+        },
+        off: (key) => {
+            if (database) database.ref(key).off();
+        }
+    };
+
+    /* ── App ─────────────────────────────────────────────────────────────────── */
+    function App() {
+        const [teams, setTeams]               = useState([]);
+        const [currentTeam, setCurrentTeam]   = useState(null);
+        const [showSetup, setShowSetup]       = useState(false);
+        const [matches, setMatches]           = useState([]);
+        const [showForm, setShowForm]         = useState(false);
+        const [opponent, setOpponent]         = useState('');
+        const [teamGoals, setTeamGoals]       = useState('');
+        const [opponentGoals, setOpponentGoals] = useState('');
+        const [Goals, setGoals]               = useState('');
+        const [Assists, setAssists]           = useState('');
+        const [syncing, setSyncing]           = useState(false);
+        const [connStatus, setConnStatus]     = useState('connecting');
+
+        useEffect(() => {
+            if (database) {
+                const ref = database.ref('.info/connected');
+                ref.on('value', snap => setConnStatus(snap.val() ? 'connected' : 'disconnected'));
+                return () => ref.off();
+            } else {
+                setConnStatus('local');
+            }
+        }, []);
+
+        useEffect(() => {
+            const load = async () => {
+                const t = await storage.get('teams');
+                if (t && t.length > 0) {
+                    setTeams(t);
+                    if (!currentTeam) setCurrentTeam(t[0].id);
+                }
+            };
+            load();
+            if (database) {
+                storage.onValue('teams', data => {
+                    if (data && data.length > 0) setTeams(data);
+                });
+                return () => storage.off('teams');
+            }
+        }, []);
+
+        useEffect(() => {
+            if (!currentTeam) return;
+            const load = async () => {
+                const m = await storage.get(`matches-${currentTeam}`);
+                setMatches(m || []);
+            };
+            load();
+            if (database) {
+                storage.onValue(`matches-${currentTeam}`, data => setMatches(data || []));
+                return () => storage.off(`matches-${currentTeam}`);
+            }
+        }, [currentTeam]);
+
+        const addTeam = async (name, colors) => {
+            const t = { id: Date.now().toString(), name, colors };
+            const updated = [...teams, t];
+            setTeams(updated);
+            await storage.set('teams', updated);
+            setCurrentTeam(t.id);
         };
 
-        function App() {
-            const [teams, setTeams] = useState([]);
-            const [currentTeam, setCurrentTeam] = useState(null);
-            const [showTeamSetup, setShowTeamSetup] = useState(false);
-            const [matches, setMatches] = useState([]);
-            const [showForm, setShowForm] = useState(false);
-            const [opponent, setOpponent] = useState('');
-            const [teamGoals, setTeamGoals] = useState('');
-            const [opponentGoals, setOpponentGoals] = useState('');
-            const [Goals, setGoals] = useState('');
-            const [Assists, setAssists] = useState('');
-            const [syncing, setSyncing] = useState(false);
-            const [connectionStatus, setConnectionStatus] = useState('connecting');
+        const deleteTeam = async (id) => {
+            if (teams.length <= 1) { alert('Need at least one team.'); return; }
+            const updated = teams.filter(t => t.id !== id);
+            setTeams(updated);
+            await storage.set('teams', updated);
+            await storage.remove(`matches-${id}`);
+            if (currentTeam === id) setCurrentTeam(updated[0].id);
+        };
 
-            // Check Firebase connection status
-            useEffect(() => {
-                if (database) {
-                    const connectedRef = database.ref('.info/connected');
-                    connectedRef.on('value', (snapshot) => {
-                        if (snapshot.val() === true) {
-                            setConnectionStatus('connected');
-                        } else {
-                            setConnectionStatus('disconnected');
-                        }
-                    });
-                    return () => connectedRef.off();
-                } else {
-                    setConnectionStatus('local');
-                }
-            }, []);
+        const handleSetupComplete = async (newTeams) => {
+            setTeams(newTeams);
+            await storage.set('teams', newTeams);
+            setCurrentTeam(newTeams[0].id);
+        };
 
-            // Load teams and listen for changes
-            useEffect(() => {
-                const loadTeams = async () => {
-                    const loadedTeams = await storage.get('teams');
-                    if (loadedTeams && loadedTeams.length > 0) {
-                        setTeams(loadedTeams);
-                        if (!currentTeam) {
-                            setCurrentTeam(loadedTeams[0].id);
-                        }
-                    }
-                };
-                
-                loadTeams();
-
-                // Listen for real-time updates
-                if (database) {
-                    storage.onValue('teams', (data) => {
-                        if (data && data.length > 0) {
-                            setTeams(data);
-                        }
-                    });
-
-                    return () => storage.off('teams');
-                }
-            }, []);
-
-            // Load matches for current team and listen for changes
-            useEffect(() => {
-                if (currentTeam) {
-                    const loadMatches = async () => {
-                        const loadedMatches = await storage.get(`matches-${currentTeam}`);
-                        setMatches(loadedMatches || []);
-                    };
-                    
-                    loadMatches();
-
-                    // Listen for real-time updates
-                    if (database) {
-                        storage.onValue(`matches-${currentTeam}`, (data) => {
-                            setMatches(data || []);
-                        });
-
-                        return () => storage.off(`matches-${currentTeam}`);
-                    }
-                }
-            }, [currentTeam]);
-
-            const addTeam = async (teamName, colors) => {
-                const newTeam = {
-                    id: Date.now().toString(),
-                    name: teamName,
-                    colors: colors
-                };
-                const updatedTeams = [...teams, newTeam];
-                setTeams(updatedTeams);
-                await storage.set('teams', updatedTeams);
-                setCurrentTeam(newTeam.id);
+        const addMatch = async () => {
+            if (!opponent || teamGoals === '' || opponentGoals === '' || Goals === '' || Assists === '') {
+                alert('Fill in all fields first.');
+                return;
+            }
+            setSyncing(true);
+            const m = {
+                id: Date.now(),
+                opponent,
+                teamGoals: parseInt(teamGoals),
+                opponentGoals: parseInt(opponentGoals),
+                Goals: parseInt(Goals),
+                Assists: parseInt(Assists),
+                date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
             };
+            const updated = [...matches, m];
+            setMatches(updated);
+            await storage.set(`matches-${currentTeam}`, updated);
+            setOpponent(''); setTeamGoals(''); setOpponentGoals(''); setGoals(''); setAssists('');
+            setShowForm(false);
+            setTimeout(() => setSyncing(false), 500);
+        };
 
-            const deleteTeam = async (teamId) => {
-                if (teams.length <= 1) {
-                    alert("You need at least one team!");
-                    return;
-                }
-                
-                const updatedTeams = teams.filter(t => t.id !== teamId);
-                setTeams(updatedTeams);
-                await storage.set('teams', updatedTeams);
-                await storage.remove(`matches-${teamId}`);
-                
-                if (currentTeam === teamId) {
-                    setCurrentTeam(updatedTeams[0].id);
-                }
-            };
+        const deleteMatch = async (id) => {
+            setSyncing(true);
+            const updated = matches.filter(m => m.id !== id);
+            setMatches(updated);
+            await storage.set(`matches-${currentTeam}`, updated);
+            setTimeout(() => setSyncing(false), 500);
+        };
 
-            const handleSetupComplete = async (newTeams) => {
-                setTeams(newTeams);
-                await storage.set('teams', newTeams);
-                setCurrentTeam(newTeams[0].id);
-            };
+        const currentTeamObj = teams.find(t => t.id === currentTeam);
 
-            const addMatch = async () => {
-                if (!opponent || teamGoals === '' || opponentGoals === '' || Goals === '' || Assists === '') {
-                    alert('Please fill in all fields! ⚽');
-                    return;
-                }
+        const totalGoals  = matches.reduce((s, m) => s + m.Goals, 0);
+        const totalAssists = matches.reduce((s, m) => s + m.Assists, 0);
+        const wins         = matches.filter(m => m.teamGoals > m.opponentGoals).length;
+        const draws        = matches.filter(m => m.teamGoals === m.opponentGoals).length;
+        const losses       = matches.filter(m => m.teamGoals < m.opponentGoals).length;
 
-                setSyncing(true);
-                const newMatch = {
-                    id: Date.now(),
-                    opponent,
-                    teamGoals: parseInt(teamGoals),
-                    opponentGoals: parseInt(opponentGoals),
-                    Goals: parseInt(Goals),
-                    Assists: parseInt(Assists),
-                    date: new Date().toLocaleDateString()
-                };
+        if (teams.length === 0) {
+            return <SetupScreen onSetupComplete={handleSetupComplete} />;
+        }
 
-                const updatedMatches = [...matches, newMatch];
-                setMatches(updatedMatches);
-                await storage.set(`matches-${currentTeam}`, updatedMatches);
-                
-                // Reset form
-                setOpponent('');
-                setTeamGoals('');
-                setOpponentGoals('');
-                setGoals('');
-                setAssists('');
-                setShowForm(false);
-                setTimeout(() => setSyncing(false), 500);
-            };
+        const connClass = connStatus === 'connected' ? 'conn-synced' : connStatus === 'disconnected' ? 'conn-offline' : 'conn-local';
+        const connLabel = connStatus === 'connected' ? 'Synced' : connStatus === 'disconnected' ? 'Offline' : 'Local';
 
-            const deleteMatch = async (id) => {
-                setSyncing(true);
-                const updatedMatches = matches.filter(m => m.id !== id);
-                setMatches(updatedMatches);
-                await storage.set(`matches-${currentTeam}`, updatedMatches);
-                setTimeout(() => setSyncing(false), 500);
-            };
+        return (
+            <div className="container">
 
-            const currentTeamObj = teams.find(t => t.id === currentTeam);
-            
-            const teamColors = currentTeamObj?.colors || {
-                primary: '#FFD700',
-                secondary: '#1a1a1a',
-                background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #4a4a4a 100%)'
-            };
-
-            // Calculate stats
-            const totalGoals = matches.reduce((sum, m) => sum + m.Goals, 0);
-            const totalAssists = matches.reduce((sum, m) => sum + m.Assists, 0);
-            const wins = matches.filter(m => m.teamGoals > m.opponentGoals).length;
-            const draws = matches.filter(m => m.teamGoals === m.opponentGoals).length;
-            const losses = matches.filter(m => m.teamGoals < m.opponentGoals).length;
-
-            return (
-                <div style={{
-                    minHeight: '100vh',
-                    background: teamColors.background,
-                    padding: '20px',
-                    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
-                }}>
-                    <div style={{
-                        maxWidth: '800px',
-                        margin: '0 auto'
-                    }}>
-                        {teams.length === 0 ? (
-                            <TeamSetupScreen onSetupComplete={handleSetupComplete} />
-                        ) : (
-                            <>
-                                <TeamSelector 
-                                    teams={teams}
-                                    currentTeam={currentTeam}
-                                    onSelectTeam={setCurrentTeam}
-                                    onAddTeam={addTeam}
-                                    onDeleteTeam={deleteTeam}
-                                    showSetup={showTeamSetup}
-                                    setShowSetup={setShowTeamSetup}
-                                    teamColors={teamColors}
-                                />
-                        
-                        {/* Header */}
-                        <div style={{
-                            background: 'white',
-                            borderRadius: '20px',
-                            padding: '30px',
-                            marginBottom: '20px',
-                            boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
-                            textAlign: 'center',
-                            position: 'relative'
-                        }}>
-                            {/* Connection Status & Sync Indicator */}
-                            <div style={{
-                                position: 'absolute',
-                                top: '15px',
-                                right: '15px',
-                                display: 'flex',
-                                gap: '10px',
-                                alignItems: 'center'
-                            }}>
-                                {connectionStatus === 'connected' && (
-                                    <div style={{
-                                        background: '#4CAF50',
-                                        color: 'white',
-                                        padding: '6px 12px',
-                                        borderRadius: '15px',
-                                        fontSize: '0.85em',
-                                        fontWeight: 'bold'
-                                    }}>
-                                        ☁️ Synced
-                                    </div>
-                                )}
-                                {connectionStatus === 'disconnected' && (
-                                    <div style={{
-                                        background: '#FF9800',
-                                        color: 'white',
-                                        padding: '6px 12px',
-                                        borderRadius: '15px',
-                                        fontSize: '0.85em',
-                                        fontWeight: 'bold'
-                                    }}>
-                                        ⚠️ Offline
-                                    </div>
-                                )}
-                                {connectionStatus === 'local' && (
-                                    <div style={{
-                                        background: '#2196F3',
-                                        color: 'white',
-                                        padding: '6px 12px',
-                                        borderRadius: '15px',
-                                        fontSize: '0.85em',
-                                        fontWeight: 'bold'
-                                    }}>
-                                        💾 Local
-                                    </div>
-                                )}
-                                {syncing && (
-                                    <div style={{
-                                        background: teamColors.primary,
-                                        color: teamColors.secondary,
-                                        padding: '6px 12px',
-                                        borderRadius: '15px',
-                                        fontSize: '0.85em',
-                                        fontWeight: 'bold'
-                                    }}>
-                                        ⏳ Saving...
-                                    </div>
-                                )}
-                            </div>
-
-                            <h1 style={{
-                                color: teamColors.primary,
-                                fontSize: '2.5em',
-                                margin: '0 0 10px 0',
-                                fontWeight: 'bold',
-                                textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
-                            }}>
-                                ⚽ GB's Football Tracker ⚽
-                            </h1>
-                            <p style={{
-                                color: '#666',
-                                fontSize: '1.2em',
-                                margin: 0
-                            }}>{currentTeamObj ? currentTeamObj.name : 'Under 9s Season'}</p>
-                        </div>
-
-                        {/* Stats Dashboard */}
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                            gap: '15px',
-                            marginBottom: '20px'
-                        }}>
-                            <StatCard 
-                                title="Goals" 
-                                value={totalGoals} 
-                                emoji="⚽" 
-                                color={teamColors.primary}
-                            />
-                            <StatCard 
-                                title="Assists" 
-                                value={totalAssists} 
-                                emoji="🎯" 
-                                color={teamColors.primary === '#FFD700' ? '#FFA500' : '#5a7fc7'}
-                            />
-                            <StatCard 
-                                title="Team Wins" 
-                                value={wins} 
-                                emoji="🏆" 
-                                color={teamColors.primary}
-                            />
-                            <StatCard 
-                                title="Draws" 
-                                value={draws} 
-                                emoji="🤝" 
-                                color="#808080"
-                            />
-                            <StatCard 
-                                title="Losses" 
-                                value={losses} 
-                                emoji="📊" 
-                                color="#4a4a4a"
-                            />
-                        </div>
-
-                        {/* Add Match Button */}
-                        {!showForm && (
+                {/* Team bar */}
+                <div className="card a0" style={{ marginBottom: 14 }}>
+                    <div className="team-bar">
+                        {teams.map(t => (
                             <button
-                                onClick={() => setShowForm(true)}
-                                style={{
-                                    width: '100%',
-                                    background: teamColors.primary,
-                                    color: teamColors.secondary,
-                                    border: 'none',
-                                    borderRadius: '15px',
-                                    padding: '20px',
-                                    fontSize: '1.3em',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    marginBottom: '20px',
-                                    boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
-                                    transition: 'all 0.3s'
-                                }}
-                                onMouseOver={(e) => e.target.style.transform = 'scale(1.02)'}
-                                onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+                                key={t.id}
+                                className={`tab-btn${currentTeam === t.id ? ' tab-active' : ''}`}
+                                onClick={() => setCurrentTeam(t.id)}
                             >
-                                ➕ Add New Match
+                                {t.name}
                             </button>
-                        )}
-
-                        {/* Add Match Form */}
-                        {showForm && (
-                            <div style={{
-                                background: 'white',
-                                borderRadius: '20px',
-                                padding: '30px',
-                                marginBottom: '20px',
-                                boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
-                            }}>
-                                <h2 style={{
-                                    color: '#1a1a1a',
-                                    marginTop: 0,
-                                    fontSize: '1.8em'
-                                }}>Add Match Result</h2>
-                                
-                                <FormInput 
-                                    label="Opponent Team" 
-                                    value={opponent}
-                                    onChange={setOpponent}
-                                    placeholder="e.g., Eagles FC"
-                                    type="text"
-                                />
-                                
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                    <FormInput 
-                                        label="Our Goals" 
-                                        value={teamGoals}
-                                        onChange={setTeamGoals}
-                                        type="number"
-                                        min="0"
-                                    />
-                                    <FormInput 
-                                        label="Their Goals" 
-                                        value={opponentGoals}
-                                        onChange={setOpponentGoals}
-                                        type="number"
-                                        min="0"
-                                    />
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                    <FormInput 
-                                        label="Goals ⚽" 
-                                        value={Goals}
-                                        onChange={setGoals}
-                                        type="number"
-                                        min="0"
-                                    />
-                                    <FormInput 
-                                        label="Assists 🎯" 
-                                        value={Assists}
-                                        onChange={setAssists}
-                                        type="number"
-                                        min="0"
-                                    />
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                                    <button
-                                        onClick={addMatch}
-                                        style={{
-                                            flex: 1,
-                                            background: teamColors.primary,
-                                            color: teamColors.secondary,
-                                            border: 'none',
-                                            borderRadius: '10px',
-                                            padding: '15px',
-                                            fontSize: '1.1em',
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        ✅ Save Match
-                                    </button>
-                                    <button
-                                        onClick={() => setShowForm(false)}
-                                        style={{
-                                            flex: 1,
-                                            background: teamColors.secondary,
-                                            color: teamColors.primary,
-                                            border: `2px solid ${teamColors.primary}`,
-                                            borderRadius: '10px',
-                                            padding: '15px',
-                                            fontSize: '1.1em',
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        ❌ Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Match History */}
-                        {matches.length > 0 && (
-                            <div style={{
-                                background: 'white',
-                                borderRadius: '20px',
-                                padding: '30px',
-                                boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
-                            }}>
-                                <h2 style={{
-                                    color: '#1a1a1a',
-                                    marginTop: 0,
-                                    fontSize: '1.8em'
-                                }}>Match History</h2>
-                                
-                                {matches.map(match => (
-                                    <MatchCard 
-                                        key={match.id}
-                                        match={match}
-                                        onDelete={() => deleteMatch(match.id)}
-                                        teamColors={teamColors}
-                                    />
-                                ))}
-                            </div>
-                        )}
-
-                        {matches.length === 0 && !showForm && (
-                            <div style={{
-                                background: 'white',
-                                borderRadius: '20px',
-                                padding: '50px',
-                                textAlign: 'center',
-                                boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
-                                color: '#666',
-                                fontSize: '1.2em'
-                            }}>
-                                <div style={{ fontSize: '4em', marginBottom: '20px' }}>⚽</div>
-                                No matches yet! Click "Add New Match" to get started!
-                            </div>
-                        )}
-                            </>
-                        )}
+                        ))}
+                        <button className="gear-btn" onClick={() => setShowSetup(s => !s)}>⚙</button>
                     </div>
-                </div>
-            );
-        }
-
-        function TeamSetupScreen({ onSetupComplete }) {
-            const [team1, setTeam1] = useState('');
-            const [team2, setTeam2] = useState('');
-
-            const handleSetup = () => {
-                if (!team1.trim() || !team2.trim()) {
-                    alert('Please enter both team names! ⚽');
-                    return;
-                }
-                
-                const newTeams = [
-                    {
-                        id: Date.now().toString(),
-                        name: team1.trim(),
-                        colors: {
-                            primary: '#FFD700',
-                            secondary: '#1a1a1a',
-                            background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #4a4a4a 100%)'
-                        }
-                    },
-                    {
-                        id: (Date.now() + 1).toString(),
-                        name: team2.trim(),
-                        colors: {
-                            primary: '#1e3c72',
-                            secondary: '#ffffff',
-                            background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7fa1d1 100%)'
-                        }
-                    }
-                ];
-                
-                onSetupComplete(newTeams);
-            };
-
-            return (
-                <div style={{
-                    background: 'white',
-                    borderRadius: '20px',
-                    padding: '40px',
-                    boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
-                    textAlign: 'center'
-                }}>
-                    <h1 style={{
-                        color: '#FFD700',
-                        fontSize: '2.5em',
-                        margin: '0 0 10px 0',
-                        fontWeight: 'bold',
-                        textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
-                    }}>
-                        ⚽ Football Tracker ⚽
-                    </h1>
-                    <p style={{
-                        color: '#666',
-                        fontSize: '1.3em',
-                        marginBottom: '30px'
-                    }}>
-                        Let's set up your two teams!
-                    </p>
-
-                    <div style={{ marginBottom: '20px' }}>
-                        <label style={{
-                            display: 'block',
-                            marginBottom: '8px',
-                            color: '#1a1a1a',
-                            fontWeight: 'bold',
-                            fontSize: '1.2em',
-                            textAlign: 'left'
-                        }}>
-                            Team 1 Name (Yellow & Black)
-                        </label>
-                        <input
-                            type="text"
-                            value={team1}
-                            onChange={(e) => setTeam1(e.target.value)}
-                            placeholder="e.g., Lightning FC"
-                            style={{
-                                width: '100%',
-                                padding: '15px',
-                                fontSize: '1.2em',
-                                border: '2px solid #FFD700',
-                                borderRadius: '10px',
-                                boxSizing: 'border-box'
-                            }}
-                        />
-                    </div>
-
-                    <div style={{ marginBottom: '30px' }}>
-                        <label style={{
-                            display: 'block',
-                            marginBottom: '8px',
-                            color: '#1a1a1a',
-                            fontWeight: 'bold',
-                            fontSize: '1.2em',
-                            textAlign: 'left'
-                        }}>
-                            Team 2 Name (Blue & White)
-                        </label>
-                        <input
-                            type="text"
-                            value={team2}
-                            onChange={(e) => setTeam2(e.target.value)}
-                            placeholder="e.g., Thunder United"
-                            style={{
-                                width: '100%',
-                                padding: '15px',
-                                fontSize: '1.2em',
-                                border: '2px solid #1e3c72',
-                                borderRadius: '10px',
-                                boxSizing: 'border-box'
-                            }}
-                        />
-                    </div>
-
-                    <button
-                        onClick={handleSetup}
-                        style={{
-                            width: '100%',
-                            background: '#FFD700',
-                            color: '#1a1a1a',
-                            border: 'none',
-                            borderRadius: '15px',
-                            padding: '20px',
-                            fontSize: '1.3em',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
-                        }}
-                    >
-                        ✅ Let's Go!
-                    </button>
-                </div>
-            );
-        }
-
-        function TeamSelector({ teams, currentTeam, onSelectTeam, onAddTeam, onDeleteTeam, showSetup, setShowSetup, teamColors }) {
-            const [newTeamName, setNewTeamName] = useState('');
-
-            const handleAddTeam = () => {
-                if (!newTeamName.trim()) {
-                    alert('Please enter a team name! ⚽');
-                    return;
-                }
-                
-                const defaultColors = {
-                    primary: '#FFD700',
-                    secondary: '#1a1a1a',
-                    background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #4a4a4a 100%)'
-                };
-                
-                onAddTeam(newTeamName.trim(), defaultColors);
-                setNewTeamName('');
-                setShowSetup(false);
-            };
-
-            return (
-                <div style={{
-                    background: 'white',
-                    borderRadius: '20px',
-                    padding: '20px',
-                    marginBottom: '20px',
-                    boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
-                }}>
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: showSetup ? '20px' : '0'
-                    }}>
-                        <div style={{
-                            display: 'flex',
-                            gap: '10px',
-                            flexWrap: 'wrap',
-                            flex: 1
-                        }}>
-                            {teams.map(team => (
-                                <button
-                                    key={team.id}
-                                    onClick={() => onSelectTeam(team.id)}
-                                    style={{
-                                        background: currentTeam === team.id ? team.colors.primary : '#f5f5f5',
-                                        color: currentTeam === team.id ? team.colors.secondary : '#666',
-                                        border: currentTeam === team.id ? `3px solid ${team.colors.secondary}` : '2px solid #ddd',
-                                        borderRadius: '12px',
-                                        padding: '12px 20px',
-                                        fontSize: '1.1em',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    {team.name}
-                                </button>
-                            ))}
-                        </div>
-                        <button
-                            onClick={() => setShowSetup(!showSetup)}
-                            style={{
-                                background: teamColors.secondary,
-                                color: teamColors.primary,
-                                border: `2px solid ${teamColors.primary}`,
-                                borderRadius: '10px',
-                                padding: '12px 16px',
-                                fontSize: '1.1em',
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                marginLeft: '10px'
-                            }}
-                        >
-                            ⚙️
-                        </button>
-                    </div>
-
                     {showSetup && (
-                        <div style={{
-                            borderTop: '2px solid #f5f5f5',
-                            paddingTop: '20px'
-                        }}>
-                            <h3 style={{ margin: '0 0 15px 0', color: '#1a1a1a' }}>Manage Teams</h3>
-                            
-                            <div style={{ marginBottom: '15px' }}>
-                                <input
-                                    type="text"
-                                    value={newTeamName}
-                                    onChange={(e) => setNewTeamName(e.target.value)}
-                                    placeholder="New team name..."
-                                    style={{
-                                        width: '100%',
-                                        padding: '12px',
-                                        fontSize: '1.1em',
-                                        border: '2px solid #ddd',
-                                        borderRadius: '8px',
-                                        boxSizing: 'border-box',
-                                        marginBottom: '10px'
-                                    }}
-                                />
-                                <button
-                                    onClick={handleAddTeam}
-                                    style={{
-                                        width: '100%',
-                                        background: teamColors.primary,
-                                        color: teamColors.secondary,
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        padding: '12px',
-                                        fontSize: '1em',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    ➕ Add Team
-                                </button>
-                            </div>
-
-                            <div>
-                                <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '0.9em' }}>Delete teams:</p>
-                                {teams.map(team => (
-                                    <div key={team.id} style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        padding: '8px',
-                                        background: '#f5f5f5',
-                                        borderRadius: '8px',
-                                        marginBottom: '5px'
-                                    }}>
-                                        <span style={{ fontWeight: 'bold' }}>{team.name}</span>
-                                        <button
-                                            onClick={() => {
-                                                if (confirm(`Delete ${team.name} and all its matches?`)) {
-                                                    onDeleteTeam(team.id);
-                                                }
-                                            }}
-                                            style={{
-                                                background: teamColors.secondary,
-                                                color: teamColors.primary,
-                                                border: 'none',
-                                                borderRadius: '5px',
-                                                padding: '5px 10px',
-                                                cursor: 'pointer',
-                                                fontSize: '0.9em'
-                                            }}
-                                        >
-                                            🗑️ Delete
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
+                        <div className="manage-panel">
+                            <p className="manage-title">Manage teams</p>
+                            <ManageTeams teams={teams} onAddTeam={addTeam} onDeleteTeam={deleteTeam} />
                         </div>
                     )}
                 </div>
-            );
-        }
 
-        function StatCard({ title, value, emoji, color }) {
-            return (
-                <div style={{
-                    background: 'white',
-                    borderRadius: '15px',
-                    padding: '20px',
-                    textAlign: 'center',
-                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                    border: `3px solid ${color}`
-                }}>
-                    <div style={{ fontSize: '2.5em', marginBottom: '5px' }}>{emoji}</div>
-                    <div style={{ 
-                        fontSize: '2em', 
-                        fontWeight: 'bold', 
-                        color: color,
-                        marginBottom: '5px'
-                    }}>
-                        {value}
+                {/* Header */}
+                <div className="card header a1" style={{ marginBottom: 14 }}>
+                    {/* Connection badge */}
+                    <div className={`conn-badge ${connClass}`}>
+                        <span className="conn-dot"></span>
+                        {syncing ? 'Saving…' : connLabel}
                     </div>
-                    <div style={{ 
-                        fontSize: '0.9em', 
-                        color: '#666',
-                        fontWeight: '500'
-                    }}>
-                        {title}
-                    </div>
+
+                    <p className="header-eyebrow">Season Tracker</p>
+                    <h1 className="header-title">GB's <em>Football</em></h1>
+                    <p className="header-team">
+                        {currentTeamObj ? `// ${currentTeamObj.name}` : '// All Teams'}
+                    </p>
                 </div>
-            );
-        }
 
-        function FormInput({ label, value, onChange, type = "text", placeholder = "", min }) {
-            return (
-                <div style={{ marginBottom: '20px' }}>
-                    <label style={{
-                        display: 'block',
-                        marginBottom: '8px',
-                        color: '#1a1a1a',
-                        fontWeight: 'bold',
-                        fontSize: '1.1em'
-                    }}>
-                        {label}
-                    </label>
-                    <input
-                        type={type}
-                        value={value}
-                        onChange={(e) => onChange(e.target.value)}
-                        placeholder={placeholder}
-                        min={min}
-                        style={{
-                            width: '100%',
-                            padding: '12px',
-                            fontSize: '1.1em',
-                            border: '2px solid #ddd',
-                            borderRadius: '8px',
-                            boxSizing: 'border-box'
-                        }}
-                    />
+                {/* Stat grid */}
+                <div className="stat-grid a2">
+                    <StatCard label="Goals"   value={totalGoals}   cls="c-accent" />
+                    <StatCard label="Assists"  value={totalAssists} cls="c-accent" />
+                    <StatCard label="Wins"     value={wins}         cls="c-win"    />
+                    <StatCard label="Draws"    value={draws}        cls="c-draw"   />
+                    <StatCard label="Losses"   value={losses}       cls="c-loss"   />
                 </div>
-            );
-        }
 
-        function MatchCard({ match, onDelete, teamColors }) {
-            const result = match.teamGoals > match.opponentGoals ? 'WIN' : 
-                          match.teamGoals < match.opponentGoals ? 'LOSS' : 'DRAW';
-            const resultColor = result === 'WIN' ? teamColors.primary : 
-                               result === 'LOSS' ? '#808080' : '#FFA500';
-            const resultEmoji = result === 'WIN' ? '🏆' : 
-                               result === 'LOSS' ? '😔' : '🤝';
-
-            return (
-                <div style={{
-                    background: '#f5f5f5',
-                    borderRadius: '12px',
-                    padding: '20px',
-                    marginBottom: '15px',
-                    border: `3px solid ${resultColor}`,
-                    position: 'relative'
-                }}>
-                    <button
-                        onClick={onDelete}
-                        style={{
-                            position: 'absolute',
-                            top: '10px',
-                            right: '10px',
-                            background: teamColors.secondary,
-                            color: teamColors.primary,
-                            border: `2px solid ${teamColors.primary}`,
-                            borderRadius: '50%',
-                            width: '30px',
-                            height: '30px',
-                            cursor: 'pointer',
-                            fontSize: '1em'
-                        }}
-                        title="Delete match"
-                    >
-                        ×
+                {/* Add match button */}
+                {!showForm && (
+                    <button className="add-btn a3" onClick={() => setShowForm(true)}>
+                        <span>+ Add Match</span>
                     </button>
+                )}
 
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '10px'
-                    }}>
-                        <div>
-                            <div style={{
-                                fontSize: '1.3em',
-                                fontWeight: 'bold',
-                                color: '#1a1a1a'
-                            }}>
-                                vs {match.opponent}
+                {/* Add match form */}
+                {showForm && (
+                    <div className="card form-card a3">
+                        <p className="form-heading">Match Result</p>
+                        <label className="form-lbl">Opponent</label>
+                        <input className="form-inp" type="text" placeholder="e.g. Eagles FC"
+                            value={opponent} onChange={e => setOpponent(e.target.value)} />
+
+                        <div className="form-2col">
+                            <div>
+                                <label className="form-lbl">Our Goals</label>
+                                <input className="form-inp" type="number" min="0"
+                                    value={teamGoals} onChange={e => setTeamGoals(e.target.value)} />
                             </div>
-                            <div style={{ color: '#666', fontSize: '0.9em' }}>
-                                {match.date}
+                            <div>
+                                <label className="form-lbl">Their Goals</label>
+                                <input className="form-inp" type="number" min="0"
+                                    value={opponentGoals} onChange={e => setOpponentGoals(e.target.value)} />
                             </div>
                         </div>
-                        <div style={{
-                            background: resultColor,
-                            color: result === 'WIN' ? teamColors.secondary : 'white',
-                            padding: '8px 16px',
-                            borderRadius: '20px',
-                            fontWeight: 'bold',
-                            fontSize: '1.1em'
-                        }}>
-                            {resultEmoji} {result}
+
+                        <div className="form-2col">
+                            <div>
+                                <label className="form-lbl">My Goals</label>
+                                <input className="form-inp" type="number" min="0"
+                                    value={Goals} onChange={e => setGoals(e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="form-lbl">My Assists</label>
+                                <input className="form-inp" type="number" min="0"
+                                    value={Assists} onChange={e => setAssists(e.target.value)} />
+                            </div>
+                        </div>
+
+                        <div className="form-actions">
+                            <button className="btn-save"   onClick={addMatch}>Save Match</button>
+                            <button className="btn-cancel" onClick={() => setShowForm(false)}>Cancel</button>
                         </div>
                     </div>
+                )}
 
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
-                        gap: '10px',
-                        marginTop: '15px'
-                    }}>
-                        <div style={{ 
-                            background: 'white', 
-                            padding: '12px', 
-                            borderRadius: '8px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: '1.8em', fontWeight: 'bold', color: '#1a1a1a' }}>
-                                {match.teamGoals} - {match.opponentGoals}
-                            </div>
-                            <div style={{ fontSize: '0.9em', color: '#666' }}>Final Score</div>
+                {/* Match history */}
+                {matches.length > 0 && (
+                    <div className="card a4">
+                        <p className="history-head">Match History — {matches.length} game{matches.length !== 1 ? 's' : ''}</p>
+                        {[...matches].reverse().map(m => (
+                            <MatchRow key={m.id} match={m} onDelete={() => deleteMatch(m.id)} />
+                        ))}
+                    </div>
+                )}
+
+                {matches.length === 0 && !showForm && (
+                    <div className="card a4">
+                        <div className="empty">
+                            <span className="empty-icon">⚽</span>
+                            <p className="empty-txt">No matches logged yet — add one above</p>
                         </div>
-                        <div style={{ 
-                            background: 'white', 
-                            padding: '12px', 
-                            borderRadius: '8px',
-                            display: 'flex',
-                            justifyContent: 'space-around'
-                        }}>
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: teamColors.primary }}>
-                                    ⚽ {match.Goals}
-                                </div>
-                                <div style={{ fontSize: '0.8em', color: '#666' }}>Goals</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: teamColors.primary === '#FFD700' ? '#FFA500' : '#5a7fc7' }}>
-                                    🎯 {match.Assists}
-                                </div>
-                                <div style={{ fontSize: '0.8em', color: '#666' }}>Assists</div>
-                            </div>
-                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    /* ── StatCard ─────────────────────────────────────────────────────────────── */
+    function StatCard({ label, value, cls }) {
+        return (
+            <div className="card card-lift stat-card">
+                <div className={`stat-num ${cls}`}>{value}</div>
+                <div className="stat-lbl">{label}</div>
+            </div>
+        );
+    }
+
+    /* ── MatchRow ─────────────────────────────────────────────────────────────── */
+    function MatchRow({ match, onDelete }) {
+        const result     = match.teamGoals > match.opponentGoals ? 'WIN' : match.teamGoals < match.opponentGoals ? 'LOSS' : 'DRAW';
+        const tagClass   = result === 'WIN' ? 'tag-win' : result === 'LOSS' ? 'tag-loss' : 'tag-draw';
+
+        return (
+            <div className="match-row">
+                <div>
+                    <div className="match-vs">
+                        vs {match.opponent}
+                        <span>{match.date}</span>
+                    </div>
+                    <div className="match-meta-row">
+                        <span className="match-score">{match.teamGoals}–{match.opponentGoals}</span>
+                        <span className="match-stat-pill">⚽ <strong>{match.Goals}</strong></span>
+                        <span className="match-stat-pill">🎯 <strong>{match.Assists}</strong></span>
                     </div>
                 </div>
-            );
-        }
+                <div>
+                    <span className={`result-tag ${tagClass}`}>{result}</span>
+                </div>
+                <button className="del-match-btn" onClick={onDelete} title="Delete match">×</button>
+            </div>
+        );
+    }
 
-        ReactDOM.render(<App />, document.getElementById('root'));
-    </script>
+    /* ── ManageTeams ──────────────────────────────────────────────────────────── */
+    function ManageTeams({ teams, onAddTeam, onDeleteTeam }) {
+        const [name, setName] = useState('');
+
+        const teamColorSets = [
+            { primary: '#FFD700', secondary: '#1a1a1a', background: 'linear-gradient(135deg,#1a1a1a,#2d2d2d,#4a4a4a)' },
+            { primary: '#1e3c72', secondary: '#ffffff', background: 'linear-gradient(135deg,#1e3c72,#2a5298,#7fa1d1)' },
+            { primary: '#c0392b', secondary: '#ffffff', background: 'linear-gradient(135deg,#c0392b,#e74c3c,#ff7675)' },
+            { primary: '#27ae60', secondary: '#ffffff', background: 'linear-gradient(135deg,#27ae60,#2ecc71,#55efc4)' },
+        ];
+
+        const handleAdd = () => {
+            if (!name.trim()) return;
+            const idx = teams.length % teamColorSets.length;
+            onAddTeam(name.trim(), teamColorSets[idx]);
+            setName('');
+        };
+
+        return (
+            <div>
+                <div className="manage-add-row">
+                    <input
+                        className="manage-input"
+                        type="text"
+                        placeholder="New team name…"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                    />
+                    <button className="manage-add-btn" onClick={handleAdd}>+ Add</button>
+                </div>
+                {teams.map(t => (
+                    <div key={t.id} className="team-row">
+                        <span>{t.name}</span>
+                        <button
+                            className="del-team-btn"
+                            onClick={() => confirm(`Delete ${t.name} and all its matches?`) && onDeleteTeam(t.id)}
+                        >
+                            Delete
+                        </button>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    /* ── SetupScreen ──────────────────────────────────────────────────────────── */
+    function SetupScreen({ onSetupComplete }) {
+        const [team1, setTeam1] = useState('');
+        const [team2, setTeam2] = useState('');
+
+        const handleSetup = () => {
+            if (!team1.trim() || !team2.trim()) { alert('Enter both team names.'); return; }
+            onSetupComplete([
+                {
+                    id: Date.now().toString(),
+                    name: team1.trim(),
+                    colors: { primary: '#FFD700', secondary: '#1a1a1a', background: 'linear-gradient(135deg,#1a1a1a,#2d2d2d,#4a4a4a)' }
+                },
+                {
+                    id: (Date.now() + 1).toString(),
+                    name: team2.trim(),
+                    colors: { primary: '#1e3c72', secondary: '#ffffff', background: 'linear-gradient(135deg,#1e3c72,#2a5298,#7fa1d1)' }
+                }
+            ]);
+        };
+
+        return (
+            <div className="setup-wrap">
+                <div className="card setup-card a0">
+                    <p className="setup-eyebrow">First Time Setup</p>
+                    <h1 className="setup-title">Football<br/>Tracker</h1>
+                    <p className="setup-sub">Enter your two teams to get started</p>
+
+                    <label className="form-lbl">Team 1 Name</label>
+                    <input
+                        className="form-inp"
+                        type="text"
+                        placeholder="e.g. Lightning FC"
+                        value={team1}
+                        onChange={e => setTeam1(e.target.value)}
+                    />
+
+                    <label className="form-lbl">Team 2 Name</label>
+                    <input
+                        className="form-inp"
+                        type="text"
+                        placeholder="e.g. Thunder United"
+                        value={team2}
+                        onChange={e => setTeam2(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSetup()}
+                        style={{ marginBottom: 28 }}
+                    />
+
+                    <button className="btn-save" style={{ width: '100%', padding: '16px' }} onClick={handleSetup}>
+                        Let's Go
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+</script>
 </body>
 </html>
